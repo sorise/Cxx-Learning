@@ -25,12 +25,20 @@
 | **8. CMAKE_EXE_LINKER_FLAGS** |指定链接可执行文件时使用的链接选项|
 | **9. CMAKE_SYSTEM_NAME**|指定当前操作系统名称（如Windows、Linux等）|
 | **10. CMAKE_SYSTEM_PROCESSOR** |指定当前处理器的类型（如x86、x86_64等）|
+| **11. CMAKE_CXX_STANDARD_REQUIRED** | 设置指定的C++编译器版本是必须的，如果不设置，或者为OFF，则指定版本不可用时，会使用上一版本。 |
 | **...** |**...** |
 
 
-#### [CMAKE_EXE_LINKER_FLAGS](#)
+#### [1.1 防止内部构建](#)
+```cmake
+if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
+    message(FATAL_ERROR "内部构建完全不支持！")
+endif()
+```
+
+#### [1.2 CMAKE_EXE_LINKER_FLAGS](#)
 强制使用静态连接，默认使用的是动态链接！
-```shell
+```cmake
 set(CMAKE_EXE_LINKER_FLAGS "-static")
 ```
 

@@ -16,6 +16,8 @@
 2. [CMake 变量](./contents/CMakeVariables.md)
 3. [CMake 内置变量](./contents/CMakeInternalVariable.md)
 4. [CMake 指令](./contents/CMakeInstructions.md)
+5. [CMake 结构化指令](./contents/CMakeStructuredInstruction.md)
+
 
 
 
