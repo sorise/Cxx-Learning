@@ -25,23 +25,26 @@
 > 例如双休链表的中删除一个节点需要先找到需要删除的节点 **A**、将**A**节点中的前驱节点的`next`指针指向后驱节点，将后驱节点的 `prev`指针指向
 **A**节点的前驱节点，然后再删除节点**A**。如果以上操作顺序错乱，双向链表将会导致双向链表被破坏。
 
-* **A. 线程的异步性导致写操作顺序不可预测，不正确的写顺序会破坏数据结构** [**实现线程的同步**](#)
+* **A. 线程的异步性导致写操作顺序不可预测，不正确的写顺序会破坏数据结构** 
 
 条件竞争也是一个问题，当操作有几个线程负责，它们争先让线程执行各自的操作。
 > 例如抢票，几个线程分别处理抢票请求，减少总票的数量。这种情况下线程的执行次序并不重要，只要保持每次修改总票数的线程只有一个就行了，同时要防止恶性竞争，因为一个操作需要多个CPU指针，多个
 线程同时修改同一个数据项，可能分别在执行多个CPU指令中的一个，导致非预期错误。
 
-* **B. 多个线程的条件竞争，多个线程竞争执行同一任务(数据竞争)** [**实现数据的互斥，按照数据库事务的概念来执行线程操作**](#)
+* **B. 多个线程的条件竞争，多个线程竞争执行同一任务(数据竞争)**
   * **把对数据结构的修改全部操作指令组织成一个原子事务**
   * **实现共享数据的互斥 mutex**
 
+**总结：**
+* [**实现线程的同步**](#)
+* [**实现数据的互斥，按照数据库事务的概念来执行线程操作**](#)
 
 ### [2. 使用互斥保护共享数据](#) 
 当访问共享数据前，**使用互斥量将相关数据锁住**，再当访问结束后，再将数据解锁。线程库需要保证，当一个线程使用特定互斥量锁住共
 享数据时，其他的线程想要访问锁住的数据，都必须等到之前那个线程对数据进行解锁后，才能进行访问。这就保证了所有线程能看到共
 享数据是自洽的，不变量没有被破坏。
 
-* **互斥mutex是通用的手段，但不是万能灵药，需要妥善组织和编排代码，互斥本身也有问题，表现形式是** [**死锁**](#) **对共享数据的过渡保护和欠保护都会导致问题！**
+**互斥mutex是通用的手段，但不是万能灵药，需要妥善组织和编排代码，互斥本身也有问题，表现形式是** [**死锁**](#) **对共享数据的过渡保护和欠保护都会导致问题！**
 
 `C++` 中通过实例化 `std::mutex` 创建互斥量，通过调用成员函数 `lock()` 进行上锁，`unlock()` 进行解锁。
 但是在实际操作过程中，不建议直接调用 `std::mutex` 成员函数，因为代码可能存在异常或者程序员会遗漏 `unlock` 成员，导致死锁。
@@ -56,7 +59,7 @@
 |**std::mutex**|创建互斥量|`需要和 lock() 和 unlock() 函数配合`|`有因异常而遗漏lock()的风险`|
 |**std::lock_guard<>**|模板类进行mutex的上锁与解锁。|`构造函数中对mutex进行` **加锁**， `在其析构函数中进行` **解锁**|
 |**std::unique_lock<>**|模板类进行mutex的上锁与解锁，但是效率低一些|`和lock_guard差不多`|
-|**std::scope_lock<> C++17**|C++ 17 引入，增强版的lock_guard|` `|
+|**std::scope_lock<> C++17**|C++ 17 引入，增强版的lock_guard,用于多个互斥体的免死锁 RAII 封装器|`explicit scoped_lock( MutexTypes&... m );`|
 
 
 ```cpp
@@ -182,7 +185,7 @@ std::this_thread::sleep_for(std::chrono::milliseconds(10)); //小睡0.01s;
 std::this_thread::sleep_for(std::chrono::milliseconds(100)); //小睡0.1s;
 ```
 
-
+这告诉我们保护共享数据的重要性，多线程代码需要考虑线程之间的关系是互斥还是同步、异步，不同的情况需要使用不同的处理方法！
 ### [3. mutex](#)
 [官方文档](https://zh.cppreference.com/w/cpp/thread/mutex)， mutex 类是能用于保护共享数据免受从多个线程同时访问的同步原语，
 `std::mutex` 是 `C++11` 中最基本的互斥量，`std::mutex` 对象提供了独占所有权的特性——即 **不支持递归地对 std::mutex 对象上**锁，而 `std::recursive_lock` 则可以递归地对互斥量对象上锁。
@@ -226,6 +229,33 @@ if(_mutex.try_lock()){
 }
 ```
 
+**阻塞等待：** 也不问可不可以加速，直接硬等，在复杂场景下容易造成死锁！
+```cpp
+void holder(std::mutex &mx){
+    mx.lock();//阻塞等待，直到获得锁
+    printf("holder get lock\n");
+    //等待五秒
+    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    printf("holder unlock\n");
+    mx.unlock();
+}
+void waiter(std::mutex &mx){
+    mx.lock();
+    printf("waiter get lock\n");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    printf("waiter unlock\n");
+    mx.unlock();
+}
+
+int main() {
+    std::cout << "Start, Concurrency!" << std::endl;
+    std::thread task_hold(holder, std::ref(context_mx));
+    std::thread wait_hold(waiter, std::ref(context_mx));
+    task_hold.join();
+    wait_hold.join();
+    return 0;
+}
+```
 #### [3.1 mutex的内容](#)
 需要了解其构造函数，成员函数。她的复制构造函数和赋值运算符都是被禁止调用的，核心方法就三个而已！
 
@@ -235,6 +265,8 @@ mutex( const mutex& ) = delete; //复制构造函数被删除。
 mutex& operator=() = delete; //不可赋值
 ~mutex();
 ```
+所以说要想将mutex传递给函数，只能传递引用的方式，因为他不支持复制。
+传递给线程的可调用对象只能用 **std::ref()**的方式！
 
 **公开方法:**
 * **lock()** 锁定互斥，若互斥不可用则阻塞
@@ -299,7 +331,8 @@ void sell(int id, double money){
 ```
 
 #### [3.4 lock_guard](#)
-你会发现使用lock_guard代码会很简洁！当然新增的代码在lock_guard内部。
+你会发现使用lock_guard代码会很简洁！当然新增的代码在lock_guard内部，好处还是不有的
+毕竟如果发生异常，锁还可以被释放！
 
 ```cpp
 void sell(int id, double money){
@@ -323,7 +356,7 @@ void sell(int id, double money){
 ```
 
 [**我们会发现对于共享数据，一旦出现游离的指针或者引用，这种互斥保护就形同虚设。对于共享数据类型，要设计良好的程序接口，避免泄露其指针和引用给到不按照先获
-得互斥锁定再操作的函数，一定要不留后门，对于以上的数据 ticket 等数据，很明显就有这个问题，所有的地方都可以访问！**](#)
+得互斥锁定再操作的函数，一定要不留后门，对于以上的 ticket 等数据，很明显就有这个问题，所有的地方都可以访问！**](#)
 如下所示：
 ```cpp
 class some_data
@@ -365,7 +398,7 @@ void foo()
 
 ### [4. lock_guard](#) 
 有些人 `lock()` 后总会忘记 `unlock()` 导致其他线程执行不到，卡在`lock()` 处，并且由于异常原因，可能导致 `unlock()`始终不会被执行，造成严重的死锁。
-`C++11` 提供了类 `lock_guard`，它是互斥体包装器，`std::lock_guard<>`,针对互斥实现了 `RAII`，也就是在构造的时候加锁，在析构的时候解锁
+`C++11` 提供了类 `lock_guard`，它是互斥体包装器，`std::lock_guard<>`,针对互斥实现了 `RAII`，也就是在构造的时候加锁，在析构的时候解锁。
 
 [**获得互斥 m 的所有权而不试图锁定它，它是严格基于作用域的,它通过作用域完成 try_to_lock 这个过程！**](#) 
 
@@ -415,18 +448,18 @@ private:
 
 
 #### [4.1 读写例子](#)
+生产者消费者模式，一个线程负责生产消息，一个线程负责消费消息！
 
+引用文件和全局数据！
 ```cpp
 #include<algorithm>
 #include<iostream>
 #include<fstream>
-#include<filesystem>
 #include<mutex>
-#include<list>
 #include<thread>
-#include <random>
 #include<map>
-#include <sstream> 
+#include <sstream>
+
 
 using std::cout;
 using std::endl;
@@ -437,60 +470,70 @@ std::map<int, std::string> message_memory;
 int save_message_count = 0;
 int read_message_count = 0;
 int save_count = 0;
+```
 
+创造消息的线程绑定的可调用对象！
+```cpp
 void createMessage(){
-   while (true)
-   {
-      std::lock_guard<std::mutex> guard(msg_mutex);
-      if (save_count < 3)
-      {
-         std::string ns = "this is a new message " + std::to_string(save_message_count);
-         message_memory[save_message_count] =  ns;
-         save_message_count ++;
-         save_count ++;
-      }
-   }
+    while (true)
+    {
+        std::lock_guard<std::mutex> guard(msg_mutex);
+        if (save_count < 3)
+        {
+            std::string ns = "this is a new message " + std::to_string(save_message_count);
+            printf("%d create: %s\n",save_message_count, ns.c_str());
+            message_memory[save_message_count] =  ns;
+            save_message_count ++;
+            save_count ++;
+        } else{
+            std::this_thread::yield();
+        }
+    }
 }
+```
 
+消费消息的线程绑定的可调用对象！
+```cpp
 void readMessage(){
-   while (true)
-   {
-      std::lock_guard<std::mutex> guard(msg_mutex);
-      if (save_count > 0)
-      {
-         std::stringstream ss; 
-         ss << std::this_thread::get_id(); 
-         std::string r_mssage = ss.str();
-         r_mssage = r_mssage + " read: "+  message_memory[read_message_count] + "\n";
-         printf("%s", r_mssage.c_str());
-         read_message_count++;
-         save_count --;
-      }
-   }
+    while (true)
+    {
+        std::lock_guard<std::mutex> guard(msg_mutex);
+        if (save_count > 0)
+        {
+            std::stringstream ss;
+            ss << std::this_thread::get_id();
+            std::string r_mssage = ss.str();
+            r_mssage = r_mssage + " read: "+  message_memory[read_message_count] + "\n";
+            printf("%s", r_mssage.c_str());
+            read_message_count++;
+            save_count --;
+        }
+    }
 }
+```
 
+主函数：
+```cpp
 int main(int argc, char *argv[]){
 
-   msg_mutex.lock();
+    msg_mutex.lock();
 
-   std::thread rt1(readMessage);
-   std::thread rt2(readMessage);
-   std::thread cr(createMessage);
-   
-   std::this_thread::sleep_for(std::chrono::milliseconds(400)); 
-   msg_mutex.unlock();
-   std::this_thread::sleep_for(std::chrono::milliseconds(2000)); 
+    std::thread rt1(readMessage);
+    std::thread rt2(readMessage);
+    std::thread cr(createMessage);
 
-   msg_mutex.lock();
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    //开始生产消费
+    msg_mutex.unlock();
 
-   rt1.detach();
-   rt2.detach();
-   cr.detach();
-   
+    rt1.detach();
+    rt2.detach();
+    cr.detach();
 
-   char msg[256];
-   cin.getline(msg, 256); //等待运行
-   return 0;
+    //不让程序结束
+    char msg[256];
+    cin.getline(msg, 256); //等待运行
+    return 0;
 }
 ```
 
@@ -522,21 +565,20 @@ int main(int argc, char *argv[]){
    return 0;
 }
 ```
-**防范死锁的建议**
-
-* [**始终按照相同顺序对两个互斥量进行加锁！，如果我们总是先锁互斥A，再锁互斥B，那么就可以避免死锁。**](#)
+**防范死锁的建议**： [**始终按照相同顺序对两个互斥量进行加锁！，如果我们总是先锁互斥A，再锁互斥B，那么就可以避免死锁。**](#)
 
 
 ### [5. unique_lock](#) 
-与std:::lock_gurad 基本一致，但更加灵活的锁管理类模板，构造时是否加锁是可选的，在对象析构时如果持有锁会自动释放锁，所有权可以转移。对象生命期内允许手动加锁和释放
-锁。但提供了更好的上锁和解锁控制，尤其是在程序抛出异常后先前已被上锁的 Mutex 对象可以正确进行解锁操作，极大地简化了程序员编写与 Mutex 相关的异常处理代码。
+与std:::lock_gurad 基本一致，但更加灵活的锁管理类模板，构造时是否加锁是可选的，在对象析构时如果持有锁会自动释放锁，所有权可以转移。
+
+对象生命期内允许手动加锁和释放锁， 但提供了更好的上锁和解锁控制，尤其是在程序抛出异常后先前已被上锁的 Mutex 对象可以正确进行解锁操作，极大地简化
+
 允许延迟锁定、锁定的有时限尝试、递归锁定、所有权转移和与条件变量一同使用。
 
-**unique_lock也可以加std::adopt_lock参数，表示互斥量已经被lock，不需要再重复lock。该互斥量之前必须已经lock，才可以使用该参数。**
+* **unique_lock也可以加std::adopt_lock参数，表示互斥量已经被lock，不需要再重复lock。该互斥量之前必须已经lock，才可以使用该参数。**
+* **请注意，unique_lock和lock_guard都不能复制，lock_guard不能移动，但是unique_lock可以！**
+* **unique_lock被析构时，会检查互斥量是否被lock过，如果已经被lock了，那么会调用一次 unlock。**
 
-**请注意，unique_lock和lock_guard都不能复制，lock_guard不能移动，但是unique_lock可以！**
-
-**unique_lock被析构时，会检查互斥量是否被lock过，如果已经被lock了，那么会调用一次 unlock。**
 ```cpp
 // unique_lock 可以移动，不能复制
 std::unique_lock<std::mutex> guard1(_mu);
@@ -678,8 +720,18 @@ int main(int argc, char* argv[]) {
 }
 ```
 
+#### [5.5 用于指定锁定策略的标签常量](#)
+用于指定锁定策略的标签常量,可以传递给 lock_guard 和 unique_lock 作为第二个构造函数参数。它们都是被定义的空结构体！
 
+|类型|效果|
+|:---|:---|
+|defer_lock_t|不获得互斥的所有权|
+|try_to_lock_t|尝试获得互斥的所有权而不阻塞|
+|adopt_lock_t|假设调用方线程已拥有互斥的所有权|
 
+```cpp
+std::unique_lock<std::mutex> lock(mtx, std::try_to_lock); //尝试去锁
+```
 
 
 ### [6. 死锁](#)

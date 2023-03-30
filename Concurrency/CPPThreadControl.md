@@ -7,7 +7,7 @@
 - [x] [2. 向线程函数传递参数](#2-向线程函数传递参数)
 - [x] [3. 移交线程归属权](#3-移交线程归属权)
 - [x] [4. 线程集合](#4-线程集合)
-- [x] [5. 识别线程](#5-线程集合)
+- [x] [5. 管理当前线程的函数](#5-管理当前线程的函数)
 
 -----
 
@@ -104,6 +104,27 @@ std::thread t{AddBasic()};
 std::thread t{AddBasic()}; 
 std::thread t((AddBasic())); 
 ```
+**传递类的函数指针方法:** 将对象方法传递给线程，传递静态方法就很简单了！
+```cpp
+class user {
+public:
+    user(const std::string &name):
+    _name(name){};
+    user(const user &other):
+    _name(other._name){};
+    std::string getName();
+    int calculate(const int& a, const int &b);
+    ~user(){
+        printf("user [%s] is over\n", this->_name.c_str());
+    };
+private:
+    std::string _name;
+};
+
+user remix(std::string("remix"));
+std::thread task(&user::calculate, &remix, 10, 20);
+```
+
 
 #### [1.2 分离和汇合](#)
 [一旦启动了线程，我们就需明确是要等待它结束（与之汇合），还是任由它独自运行（与之分离）。假如等到 std::thread对象销毁之际还没决定好，那std::thread对象的析构函数会调用 std::terminate()终止整个程序！](#)
@@ -459,7 +480,7 @@ mike 2
 2. **创建一个线程，将归属权传入某个函数，由它复制等待该线程结束。**
 3. [**std::thread 支持移动操作**](#)
 
-**线程的归属权可以在多个std::thread中多次转移，但是需要 std::move函数来完成转移！**
+**线程的归属权可以在多个std::thread中多次转移，但是需要std::move函数、移动构造函数来完成转移！** [CMake不支持移动赋值运算符](#)。
 以下程序有两个线程，四个std::thread对象。 t1将线程归属权转移给t2. t3将线程归属权转移给 t4。
 ```cpp
 void calculate(int count) {
@@ -492,7 +513,7 @@ int main(int args, char* argv[]) {
 	return 0;
 }
 ```
-**注意不要将一个线程归属权转移给一个已经关联了线程了的std::thread对象** [**在std::thread对象正在管控着一个线程，就不能简单地向它赋新值，否则该线程就会因此被遗弃！**](#)
+**注意不要将一个线程归属权转移给一个已经关联了线程了的std::thread对象**。[**std::thread对象正在管控着一个线程，就不能简单地向它赋新值，否则该线程就会因此被遗弃！**](#)
 ```cpp
 thread task1(calculate, 20);
 thread task2(calculate, 10);
@@ -649,7 +670,41 @@ std::cout << thread::hardware_concurrency << "\n";
 ```
 
 
-### [5. 识别线程](#) 
+### [5. 管理当前线程的函数](#) 
+在命名空间 this_thread 定义了数个函数用于管理当前线程。
+
+|命令|解释|
+|:----|:----|
+|yield|建议实现重新调度各执行线程|
+|get_id|返回当前线程的线程 id|
+|sleep_for|使当前线程的执行停止指定的时间段|
+|sleep_until|使当前线程的执行停止直到指定的时间点|
+
+#### [5.1 让当前线程放弃争夺cpu资源](#)
+提供提示给实现，以重调度线程的执行，允许其他线程运行。
+
+此函数的准确行为依赖于实现，特别是取决于使用中的 OS 调度器机制和系统状态。例如，先进先出实
+时调度器（ Linux 的 SCHED_FIFO ）将悬挂当前线程并将它放到准备运行的同优先级线程的队列尾
+（而若无其他线程在同优先级，则 yield 无效果）。
+
+```cpp
+void yield() noexcept;
+```
+该函数的功能是让当前线程放弃争夺cpu资源，让操作系统调度进行其他操作。如果在线程运行中，需要不断地判断成立
+条件，会严重消耗cpu的资源，为了防止循环判断影响cpu的资源，可以判断一次操作是否完成，如果没有完成就调
+用yield交出时间片，过一会儿再来判断是否完成，这样这个线程占用CPU时间会大大减少。
+
+```cpp
+while(!isDone()); // Bad
+while(!isDone()) yield(); // Good
+```
+
+std::this_thread::yield() 的目的是避免一个线程频繁与其他线程争抢CPU时间片, 从而导致多线程处理性能下降.
+
+std::this_thread::yield(); 是将当前线程所抢到的CPU”时间片A”让渡给其他线程(其他线程会争抢”时间片A”,注意: 此时”当前线程”不参与争抢).
+等到其他线程使用完”时间片A”后, 再由操作系统调度, 当前线程再和其他线程一起开始抢CPU时间片.
+
+#### [5.2 返回当前线程的线程 id](#)
 线程的标识类型是 `std::thread::id` 这是一个类，可以通过两种方式进行检索。其对象作为线程ID，可以进行复制操作和比较运算，如果两个线程的 `std::thread::id`相等！
 则它们表示相同的线程。
 
@@ -689,5 +744,3 @@ int main(int args, char* argv[]) {
 ```
 
 -----
-
-`时间`: `[]` 
