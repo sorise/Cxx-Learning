@@ -1,5 +1,5 @@
 ### [C++ 在线程之间共享数据](#)
-`在线程之间共享数据是操作系统的基本知识了，保护共享数据可以使用锁。`
+**介绍**：在线程之间共享数据是操作系统的基本知识了，保护共享数据可以使用互斥量(mutex，超时互斥量、递归互斥量、超时递归互斥量、共享互斥量)和各种加锁工具。
 
 -----
 - [x] [1. 线程间共享数据的问题](#1-线程间共享数据的问题)
@@ -746,6 +746,7 @@ std::unique_lock<std::mutex> lock(mtx, std::try_to_lock); //尝试去锁
 
 #### [6.1 lock函数](#)
 **std::lock()** 是C++ 11 标准库提供的专门解决死锁问题的函数，可以同时锁定多个互斥量而不造成死锁。
+当然解锁方式只能是用 **std::lock_guard<std::mutex> guard2(mutex, std::adopt_lock);**
 
 ```cpp
 template< class Lockable1, class Lockable2, class... LockableN >
@@ -759,9 +760,9 @@ int count = 0;
 
 void notdeadLock(std::mutex& mx1, std::mutex& mx2){
 
-   std::lock(mx1, mx2);
+   std::lock(mx1, mx2);//使用lock_guard来解锁！
 
-   std::lock_guard<std::mutex> guard1(mx1, std::adopt_lock);
+   std::lock_guard<std::mutex> guard2(mx1, std::adopt_lock);
    std::cout <<"get the first mutex " << std::this_thread::get_id() << "\n" << std::flush;
    std::this_thread::sleep_for(std::chrono::milliseconds(10)); //小睡0.01s;
 
@@ -884,9 +885,10 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-> `设计模式：程序灵活、维护方便、但是别人接管、阅读代码会非常痛苦！` `国外是现有项目模块化拆分需求，再有设计模式。我们是现有设计模式，再有程序！`
+> 设计模式：程序灵活、维护方便、但是别人接管、阅读代码会非常痛苦！国外是现有项目模块化拆分需求，再有设计模式。我们是现有设计模式，再有程序！
 >
-> `不需要为了设计模式而设计模式，很多人写程序就是拿着设计模式去套程序，这里要用一个设计模式，那里要用一个设计模式。就一个几千行，一两万行代码非要搞个模块拆分，弄一堆设计模式，有必要吗？ 代码搞这么晦涩干吗，别人阅读起来很难受的。`
+> 不需要为了设计模式而设计模式，很多人写程序就是拿着设计模式去套程序，这里要用一个设计模式，那里要用一个设计模式。
+就一个几千行，一两万行代码非要搞个模块拆分，弄一堆设计模式，有必要吗？ 代码搞这么晦涩干吗，别人阅读起来很难受的。
 
 #### [7.1 once_flag，call_once](#)
 在多线程中，有一种场景是某个任务只需要执行一次，可以用 `C++11`中的 `std::call_once`函数配合 `std::once_flag`来实现。多个线程同时调用某个函数，`std::call_once`可以保证多个线程对该函数只调用一次。 
@@ -899,11 +901,8 @@ struct once_flag
     once_flag& operator=(const once_flag&) = delete;
 };
 template<class Callable, class ...Args>
-  void call_once(once_flag& flag, Callable&& func, Args&&... args);
-}  // std
+void call_once(once_flag& flag, Callable&& func, Args&&... args);
 ```
-
-
 
 ```cpp
 int counter = 0;
@@ -1287,7 +1286,7 @@ int main(int argc, char* argv[]) {
 ```cpp
 void func1(std::recursive_mutex &mtx.lock();, const char * name) {
     mtx.lock();
-	mtx.lock();
+    mtx.lock();
     printf("the thread: %s finish the work!\n", name);
     mtx.unlock();
     mtx.unlock();
