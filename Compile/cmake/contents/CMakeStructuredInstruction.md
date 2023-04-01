@@ -5,10 +5,10 @@
 - [1. CMake 条件表达式 if](#1-cmake-条件表达式-if)
 - [2. CMake 列表 list](#2-cmake-列表-list)
 - [3. CMake 字符串 string](#3-cmake-字符串-string)
-- [4. Cmake file](#4-cmake-file)
-- [5. Cmake function](#5-cmake-function)
-- [6. Cmake while](#6-cmake-while)
-- [7. Cmake foreach](#7-cmake-foreach)
+- [4. CMake function](#4-cmake-function)
+- [5. CMake while](#5-cmake-while)
+- [6. CMake foreach](#6-cmake-foreach)
+- [7. CMake 数学运算](#7-cmake-数学运算)
 
 ----
 
@@ -151,7 +151,7 @@ ENDIF()
 ### [2. CMake 列表 list](#)
 CMake的list命令支持需多的操作：读取、搜索、修改、排序！
 
-```shell
+```cmake
 Reading
   list(LENGTH <list> <out-var>)
   list(GET <list> <element index> [<index> ...] <out-var>)
@@ -168,9 +168,9 @@ Modification
   list(POP_BACK <list> [<out-var>...])
   list(POP_FRONT <list> [<out-var>...])
   list(PREPEND <list> [<element>...])
-  list(REMOVE_ITEM <list> <value>...)
-  list(REMOVE_AT <list> <index>...)
-  list(REMOVE_DUPLICATES <list>)
+  list(REMOVE_ITEM <list> <value>...) #根据值移除元素
+  list(REMOVE_AT <list> <index>...) #根据下表移除
+  list(REMOVE_DUPLICATES <list>)   #移除重复元素
   list(TRANSFORM <list> <ACTION> [...])
 
 Ordering
@@ -178,6 +178,87 @@ Ordering
   list(SORT <list> [...])
 ```
 
+#### [2.1 创建列表](#)
+cmake创建列表有两种方式，带引号`"`或者不带引号，如果带引号，就需要`;`分割符。
+不带引号，直接分离即可。
+
+**带引号**: 最后一位后面不需要加分割符！
+```cmake
+set(names "remix;kicker;tome;killer")  #是一个列表
+set(names_no_split "remix kicker tome killer")  #不是一个列表
+set(special "[[remix;kicker;tome;killer]]") #special 是一个字符创 内容："remix;kicker;tome;killer"
+```
+**不带引号**: 这就很简单了！
+```cmake
+set(names remix kicker tome killer)
+set(numbers 1;2;3;4;5)
+
+list(LENGTH names len)
+list(LENGTH numbers number_len)
+message(NOTICE "names length: ${len}")  #4
+message(NOTICE "numbers length: ${number_len}") #5
+```
+
+#### [2.2 获得列表长度](#)
+获得长度很简单的使用 `LENGTH` 操作即可！
+
+```cmake
+set(names remix kicker tome killer)
+
+list(LENGTH names len)
+
+message(NOTICE "names length: ${len}")  #4
+```
+
+#### [2.3 获取列表中某个元素](#)
+通过索引可以获取某个元素，或者获取某一些元素！
+
+```cmake
+set(names remix kicker tome killer)
+
+list(GET names 2 element)    #获得一个元素
+list(GET names 1 2 elements) #获得两个元素
+
+message(STATUS "element: ${element}") #tome
+message(STATUS "elements: ${elements}") #kicker;tome
+```
+
+#### [2.4 insert插入](#)
+看看就懂了！
+
+```cmake
+set(names remix kicker tome killer)
+
+list(INSERT names 2 "miner" )
+
+foreach (element ${names})
+    message(NOTICE "${element}")
+endforeach ()
+#[[
+remix
+kicker
+miner
+tome
+killer
+]]#
+```
+
+#### [2.5 查找](#)
+
+```cmake
+set(names remix kicker tome killer)
+list(FIND names "tome" result)
+message(NOTICE "${result}") #3
+```
+
+#### [2.6 排序](#)
+
+```cmake
+list(SORT names ORDER ASCENDING)
+#升序排列
+list(SORT names ORDER DESCENDING)
+#降序排列
+```
 
 ### [3. CMake 字符串 string](#)
 CMake提供了处理字符串的string() 命令，其形式：
@@ -352,12 +433,7 @@ message(STATUS "running at: ${CURRENT_DATETIME}")
 #running at: 2023/03/24 21:34:21
 ```
 
-
-### [4. Cmake file](#)
-这个命令实在是太强大了，你如果翻一翻这个官方文档就会发现它具备几乎文件系统的所有功能，什么读写文件啊，什么从网上下载文件，本地上传文件之类的它都有，计算文件的相对路径，路径转化等等!
-[API](https://cmake.org/cmake/help/latest/command/file.html)
-
-### [5. Cmake function](#)
+### [4. Cmake function](#)
 在CMake中定义函数，首个参数是函数名，随后的是参数！ Cmake函数和C++一样具有自己的作用域，**同时也支持 return()操作！**
 
 重点理解一下参数的意义！怎么获得参数名，怎么获得参数值。
@@ -383,7 +459,7 @@ get_datetime(DT)
 message(STATUS "running at: ${DT}")
 ```
 
-### [6. Cmake while](#)
+### [5. Cmake while](#)
 可能用得较少... ,支持**break()** 指令提前结束循环! 支持**continue()**直接下一轮!
 
 ```cmake
@@ -393,7 +469,7 @@ endwhile()
 ```
 
 
-### [7. Cmake foreach](#)
+### [6. Cmake foreach](#)
 CMake 迭代器！支持**break()** 指令提前结束循环! 支持**continue()**直接下一轮!
 
 ```cmake
@@ -405,8 +481,7 @@ endforeach()
 * 在每次迭代开始时，变量\<loop_var\>将被设置为当前项的值。
 * \<loop_var\>的作用域仅限于循环作用域。
 
-#### [7.1 简单循环](#)
-
+#### [6.1 简单循环](#)
 ```cmake
 set(VS "kicker;god;need;mike")
 
@@ -421,8 +496,8 @@ endforeach()
 ]]#
 ```
 
-#### [7.2 RANGE 数值迭代](#)
-很简单的
+#### [6.2 RANGE 数值迭代](#)
+很简单的。
 ```cmake
 foreach(<loop_var> RANGE <start> <stop> [<step>])
 ```
@@ -454,8 +529,7 @@ endforeach()
 ]]#
 ```
 
-#### [7.3 IN List迭代](#)
-
+#### [6.3 IN List迭代](#)
 ```cmake
 foreach(<loop_var> IN [LISTS [<lists>]] [ITEMS [<items>]])
 ```
@@ -472,8 +546,7 @@ foreach(X IN LISTS A B C D E)
 endforeach()
 ```
 
-#### [7.4 迭代 ZIP_LISTS](#)
-
+#### [6.4 迭代 ZIP_LISTS](#)
 ```cmake
 list(APPEND English one two three four)
 list(APPEND Bahasa satu dua tiga)
@@ -488,4 +561,26 @@ endforeach()
 -- num_0=three, num_1=tiga
 -- num_0=four, num_1=
 ]]#
+```
+
+### [7. CMake 数学运算](#)
+有时候，我们需要对 CMake 变量之间进行数学运算，这时候 CMake 提供了 math() 这个命令，命令格式如下：
+
+```cmake
+math(EXPR outVar mathExpr [OUTPUT_FORMAT format])
+```
+这个命令也很简单，直接通过 CMake 变量结合数学运算符组成 mathExpr，然后计算结果会保存到 outVar 中。
+
+OUTPUT_FORMAT 是可选参数，代表输出结果的格式，可以是 HEXADECIMAL：输出 16 进制结果，DECIMAL：输出 10 进制结果。
+
+使用例子：
+```cmake
+set(x 20)
+set(y 20)
+
+math(EXPR result "(${x}+${y})*100" OUTPUT_FORMAT DECIMAL)
+math(EXPR result_16 "(${x}+${y})*100" OUTPUT_FORMAT HEXADECIMAL)
+
+message(NOTICE "result:${result}")      #4000
+message(NOTICE "result16:${result_16}") #0xfa0
 ```

@@ -1,9 +1,15 @@
 ### [CMake 库管理](#)
 **介绍**: 如何管理自己的库文件，如何引入第三方库，管理第三方依赖，如何将自己的工程打包发布成第三方库！ 由于C++的依赖管理和包管理十分困难，所以学习CMake处理显得十分重要！
 
+----
+
+- [1. C++ 依赖与包管理](#1-c-依赖与包管理)
+- [2. find_package](#2-find_package)
+
+
 -----
-### [1. CXX 依赖与包管理](#)
-这是十分复杂的，因为C++天生就没有自己的依赖管理里和库管理工具，更没有模块的概念！为了因为这个尴尬的处境，微软推出了**vcpkg**, C++ 20推出了**module**方案，
+### [1. C++ 依赖与包管理](#)
+这是十分复杂的，因为C++天生就没有自己的依赖和库管理工具，更没有模块的概念！为了应对这个尴尬的处境，微软推出了**vcpkg**, 标准委员会在C++ 20又推出了**module**方案，
 但是各种原因，目前为止，这对于C++而言，仍然是一个非常糟糕的缺点，限制了C++生态的发展。 
 
 目前使用第三方库有几种方法：
@@ -12,6 +18,8 @@
 * 使用FindPkgonfig发现旧版本包(已经过时)。
 * 使用 [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html#id1) 直接到git上面拉取第三方库。
 * 使用ExternalProject。
+
+但是由于CMake的逐渐普及，其内置了依赖管理，可以发现许多第三方库(要求这些第三方库也使用CMake，并且编写了相应的脚本)。
 
 #### [1.1 库管理相关指令](#)
 与库操作相关的指令。
@@ -33,7 +41,7 @@
 那么就都需要引入到项目中来。
 
 
-### [2. find_package和FetchContent](#)
+### [2. find_package](#)
 将依赖项引入构建的主要方法是find_package()命令和 FetchContent 模块。FindPkgConfig模块有时也会被使用，尽管它缺乏其他两个模块的一些集成。
 
 项目所需的包可能已经构建好，并且可以在用户系统的某个位置使用。该包可能也是由CMake构建的，也可能完全使用了不同的构建系统。它甚至可能只是一
@@ -48,7 +56,7 @@ find_package(GTest REQUIRED)
 find_package(Boost 1.79 COMPONENTS date_time)
 ```
 
-**find_package命令支持两种主要的搜索方法：** 根据使用的参数，find_package（）可能使用上述方法中的一个或两个。
+**find_package命令支持两种主要的搜索方法：** 根据使用的参数，`find_package()`可能使用上述方法中的一个或两个。
 * **Module mode**: 并非所有软件包都支持CMake。许多没有提供支持配置模式所需的文件。对于这种情况，Find模块文件可以由项目或CMake单独提供。Find模块通常是一种启发式实现，它知道包通常提供什么以及如何将该包呈现给项目。由于Find模块通常与软件包分开分发，因此它们不那么可靠。它们通常是单独维护的，并且可能遵循不同的发布时间表，因此很容易过时。
 * **Config mode**: 使用此方法，命令会查找通常由包本身提供的文件。这是两者中更可靠的方法，因为包的详细信息应该始终与包同步。
 
@@ -63,34 +71,42 @@ find_package(SomeThing
     SomeThing            # Also still look for its canonical name
 )
 ```
-配置文件必须命名为\<PackageName\>config.cmake或\<LowercasePackageName\>-config.cmake。
-名为\<PackageName\>ConfigVersion.cmake或\<LowercasePackageName\>-config-version.cmake的单独可选文件也可能存在于同一目录中。
-CMake使用此文件来确定包的版本是否满足find_package（）调用中包含的任何版本约束。在调用find_package（）时指定版本是可选的，即使存在\<PackageName\>ConfigVersion.cmake文件
-也是如此。
+配置文件必须命名为`<PackageName>config.cmake`或`<LowercasePackageNam>-config.cmake`。
 
-#### [2.1 find_package 模块模式-搜索配置文件](#)
-在该模式下，Cmake会搜索一个名为Find\<PackageName\>.cmake的文件，其中\<PackageName\>为待搜索包的名称。
+```cmake
+#查找test proj pkg库 配置文件名称可以为：
+TestProjPkgConfig.cmake
+Test-Proj-Pkg-Config.cmake
+
+```
+
+名为`<PackageName>ConfigVersion.cmake`或`<LowercasePackageName>-config-version.cmake`的单独可选文件也可能存在于同一目录中。
+CMake使用此文件来确定包的版本是否满足find_package（）调用中包含的任何版本约束。在调用find_package（）时指定版本是可选的，
+即使存在`<PackageName>ConfigVersion.cmake`文件也是如此。
+
+#### [2.1 模块模式-搜索配置文件](#)
+在该模式下，Cmake会搜索一个名为`Find<PackageName>.cmake`的文件，其中`<PackageName>`为待搜索包的名称。
 
 搜索路径的顺序依次是：
 * 从变量 **CMAKE_MODULE_PATH** 指定的路径中进行查找。
-* 从Cmake安装路径中查找。Cmake会在其安装路径下提供很多.cmake文件，例如/XXX/cmake/Modules/目录下（不同的系统安装目录可能不一致）
+* 从CMake安装路径中查找, CMake会在其安装路径下提供很多.cmake文件，例如/XXX/cmake/Modules/目录下（不同的系统安装目录可能不一致）
 
-如果找到文件Find\<PackageName\>.cmake，Cmake会读取并处理该文件，简而言之，它负责检查一些条件（如版本号是否满足等）是否满足，并
+如果找到文件Find`<PackageName>.cmake`，**CMake**会读取并处理该文件，简而言之，它负责检查一些条件（如版本号是否满足等）是否满足，并
 在找到包后，返回给调用者一些变量，用以获取包的详细信息。
 
-一般来说，Find\<PackageName\>.cmake文件不是随包本身一起提供的，更多的是外部针对已有包的重新包装，例如操作系统、Cmake程序、甚
+一般来说，`Find<PackageName>.cmake`文件不是随包本身一起提供的，更多的是外部针对已有包的重新包装，例如操作系统、Cmake程序、甚
 至是调用find_package命令的工程针对已有的包提供针对该包的.cmake文件。
 
 
-#### [2.2 find_package 配置模式-搜索配置文件](#)
-该模式下，CMake会搜索\<lowercasePackageName\>-config.cmake文件或\<PackageName\>Config.cmake文件。
+#### [2.2 配置模式-搜索配置文件](#)
+该模式下，CMake会搜索`<lowercasePackageName>-config.cmake`文件或`<PackageName>Config.cmake`文件。
 
-如果find_package命令中指定了具体的版本，也会搜索\<lowercasePackageName\>-config-version.cmake或\<PackageName\>ConfigVersion.cmake文件，因此
+如果find_package命令中指定了具体的版本，也会搜索`<lowercasePackageName>-config-version.cmake`或`<PackageName>ConfigVersion.cmake`文件，因此
 配置模式下通常会提供配置文件和版本文件（注意形式上要保持一致），并且作为包的一部分一起提供给使用者。
 
 该模式下对.cmake文件的搜索路径的顺序比较复杂。
 
-#### [2.3 find_package 基本签名](#)
+#### [2.3 基本签名](#)
 find_package用于查找包（通常是使用三方库），并返回关于包的细节（使用包所依赖的头文件、库文件、编译选项、链接选项等）。
 find_package命令有两种格式，基本命令格式和完整命令格式，先介绍基本命令格式。
 ```cmake
@@ -105,13 +121,83 @@ find_package(<PackageName> [version] [EXACT] [QUIET] [MODULE]
 ```
 
 * **PackageName**：待查找包的名称。此外它还决定两种搜索模下的.cmake文件名称：例如模块模式下的名称为Find`<PackageName>.cmake`，而配置模式下为`<lowercasePackageName>-config.cmake` `<lowercasePackageName>-config-version.cmake`。
+
 * **version**：待查找包的版本号要求，版本号为点分格式，由四个部分组成，每个部分都是一个数字，均为可选：major `[.minor[.patch[.tweak]]]`，
 例如1.1.1.1、1.0、等。同样也可以指定版本范围（CMake 3.19及之后才支持），格式为：`versionMin...[<]versionMax，versionMin和versionMax`均
 是 `major[.minor[.patch[.tweak]]]`形式的版本号，默认情况下会包含这个指定区间两端的版本号，但如果指定了`<`，那么会排除掉versionMax，例
 如1.1.1.1...1.1.2.0、1.1.1.1...`<`1.1.2.0等。
-* **MODULE**：该选项指定find_package命令只使用模块模式搜索方式查找。未指定该选项时，find_package会优先使用模块模式搜索，仍未找到包时，会切换成配置模式搜索。
+
+* **MODULE**：该选项指定find_package命令只使用模块模式搜索方式查找。未指定该选项时，find_package会优先使用**模块模式**搜索，仍未找到包时，会**切换成配置模式**搜索。
 
 * **EXACT**：该选项要求待查找包的版本必须与指定的版本精确匹配，因此如果指定的是一个版本范围，不能使用该参数。
+
 * **QUIET**：禁止输出信息，正常情况当找到包时，CMake会打印一些信息，指定该选项时会禁止掉这些打印。例外是当同时指定QUIET时，如果找不到包，仍然会输出错误信息并终止执行过程。
+
 * **REQUIRED**：当未找到满足条件的包（例如版本号不匹配，或指定组件未找到等），会终止CMake的执行过程，并输出一条错误信息。如果未指定该选项，即使未找到满足条件的包，CMake的执行过程也会继续。
-* **COMPONENTS**：指定要查找的组件。通常一个包可能包含多个组件（可以理解为多个库，例如把C++的std看成一个包的概念，那么vector就是std下的其中一个组件），我们的工程可能会依赖包下的具体某个组件，因此可以通过这个选项来检测这些组件是否存在。通常的约定是，该选项后的组件应该都找到时才认为包找到，否则认为未找到满足条件的包。这个约束会依赖包的.cmake来实现，通过find_package命令传入的COMPONENTS可以通过
+
+* **COMPONENTS**：指定要查找的组件。通常一个包可能包含多个组件（可以理解为多个库，例如把C++的std看成一个包的概念，那么vector就是std下的其中一个组件），我们的工
+程可能会依赖包下的具体某个组件，因此可以通过这个选项来检测这些组件是否存在。通常的约定是，该选项后的组件应该都找到时才认为包找到，否则认为未找到满足条件的包。这个约
+束会依赖包的.cmake来实现，通过find_package命令传入的COMPONENTS可以通过find_package命令传入的COMPONENTS可以通过`<PackName>_FIND_COMPONENTS`这个变量来获得。
+
+* **OPTIONAL_COMPONENTS**: OPTIONAL_COMPONENTS之后可以列出其他可选组件。 如果无法满足这些组件，则整个软件包仍然可以视为已找到，只要满足了所有必需组件即可。
+
+
+#### [2.4 完整签名](#)
+只支持配置模式搜索，这已经是有些些复杂了！
+
+```cmake
+find_package(<PackageName> [version] [EXACT] [QUIET]
+    [REQUIRED] [[COMPONENTS] [components...]]
+    [OPTIONAL_COMPONENTS components...]
+    [CONFIG|NO_MODULE]
+    [GLOBAL]
+    [NO_POLICY_SCOPE]
+    [BYPASS_PROVIDER]
+    [NAMES name1 [name2 ...]]
+    [CONFIGS config1 [config2 ...]]
+    [HINTS path1 [path2 ... ]]
+    [PATHS path1 [path2 ... ]]
+    [REGISTRY_VIEW  (64|32|64_32|32_64|HOST|TARGET|BOTH)]
+    [PATH_SUFFIXES suffix1 [suffix2 ...]]
+    [NO_DEFAULT_PATH]
+    [NO_PACKAGE_ROOT_PATH]
+    [NO_CMAKE_PATH]
+    [NO_CMAKE_ENVIRONMENT_PATH]
+    [NO_SYSTEM_ENVIRONMENT_PATH]
+    [NO_CMAKE_PACKAGE_REGISTRY]
+    [NO_CMAKE_BUILDS_PATH] # Deprecated; does nothing.
+    [NO_CMAKE_SYSTEM_PATH]
+    [NO_CMAKE_INSTALL_PREFIX]
+    [NO_CMAKE_SYSTEM_PACKAGE_REGISTRY]
+    [CMAKE_FIND_ROOT_PATH_BOTH |
+    ONLY_CMAKE_FIND_ROOT_PATH |
+    NO_CMAKE_FIND_ROOT_PATH])
+```
+* **CONFIG|NO_MODULE**：这两个选项二选一即可，表示强制find_package命令使用配置模式搜索，忽略模块模式搜索。
+* **CONFIG**：选项表示使用指定的配置文件来查找并加载包，通常结合--config选项使用；
+* **HINTS**：选项表示提供额外的查找提示路径；
+* **PATHS**：选项表示指定查找的路径列表，会在默认路径之前搜索；
+* **NO_DEFAULT_PATH**：选项表示不使用默认路径，只查找指定路径。
+* **QUIET** 关键字关闭所有关于已找到/未找到包的消息
+
+#### [2.5 查找结果](#)
+在大多数情况下，您可以期望在调用 find_package() 时设置一些变量，无论您使用的是内置查找模块还是与包捆绑在一起的配置文件（假设已找到包）,
+CMake内置了一些变量！
+
+* `<PKG_NAME>_FOUND` 布尔值表示查找结果。
+* `<PKG_NAME>_INCLUDE_DIRS` or `<PKG_NAME>_INCLUDES` 头文件；
+* `<PKG_NAME>_LIBRARY` or `<PKG_NAME>_LIBRARIES` or `<PKG_NAME>_LIBS` 库文件；
+* `<PKG_NAME>_DEFINITIONS`
+* `IMPORTED` targets specified by the find-module or config-file  由查找模块或配置文件指定的导入目标
+
+#### [2.6 CMAKE_PREFIX_PATH](#)
+CMAKE_PREFIX_PATH是一个分号分隔的路径列表，用来指明软件/库安装路径前缀，以供find_package()，find_program()，find_library()，find_file()和
+find_path()命令搜索使用，这样就方便搜索可执行文件、头文件、库文件及相关配置文件等。
+
+Eigen-3.4.0安装在了/opt/eigen-3.4.0目录。
+```cmake
+list(APPEND CMAKE_PREFIX_PATH "/opt/eigen-3.4.0") # 安装路径前缀
+find_package(Eigen3 MODULE REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+message("** Found Eigen3 in: ${EIGEN3_ROOT_DIR}")
+```

@@ -7,7 +7,7 @@
 - [2. CMake 项目命令](#2-cmake-项目命令)
 - [3. 库相关命令](#3-库相关命令)
 - [4. 编译相关指令](#4-编译相关指令)
-
+- [5. CMake file](#5-cmake-file)
 ----
 
 ### [1. CMake 常用脚本命令](#)
@@ -934,6 +934,9 @@ add_library(toolkits SHARED toolkits.cpp)
 target_sources(toolkits PUBLIC testSource.cpp)
 ```
 
+### [5. CMake file](#)
+这个命令实在是太强大了，你如果翻一翻这个官方文档就会发现它具备几乎文件系统的所有功能，什么读写文件啊，什么从网上下载文件，本地上传文件之类的它都有，计算文件的相对路径，路径转化等等!
+[API](https://cmake.org/cmake/help/latest/command/file.html)
 
 
 
