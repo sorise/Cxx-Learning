@@ -104,7 +104,7 @@ CMake使用此文件来确定包的版本是否满足find_package（）调用中
 如果find_package命令中指定了具体的版本，也会搜索`<lowercasePackageName>-config-version.cmake`或`<PackageName>ConfigVersion.cmake`文件，因此
 配置模式下通常会提供配置文件和版本文件（注意形式上要保持一致），并且作为包的一部分一起提供给使用者。
 
-该模式下对.cmake文件的搜索路径的顺序比较复杂。
+该模式下对`.cmake`文件的搜索路径的顺序比较复杂。
 
 #### [2.3 基本签名](#)
 find_package用于查找包（通常是使用三方库），并返回关于包的细节（使用包所依赖的头文件、库文件、编译选项、链接选项等）。
