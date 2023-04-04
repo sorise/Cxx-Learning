@@ -28,15 +28,6 @@
 - **04.** C++ 模板类、泛型 [->](./contents/CPPClassTemplate.md)
 - **05.** C++ 友元、嵌套类 [->](./contents/CPPClassAdditional.md)
 
-三. C++ 现代特性
-
-- **01.** C++ 字符串处理 [->](./contents/CPPModernCharacteristics/CPPString.md)
-- **02.** C++ 正则表达式 [**->**](./contents/CPPModernCharacteristics/CPPRegularExpression.md)
-- **03.** C++ 异常处理 [->](./contents/CPPModernCharacteristics/CPPException.md)
-- **04.** C++ RTTI 和 cast类型转换 [->](./contents/CPPModernCharacteristics/CPPRTTI.md)
-- **05.** C++ 动态内存与智能指针 [->](./contents/CPPModernCharacteristics/CPPSmartPointer.md)
-- **06.** C++ tuple、bitset、随机数 [->](./contents/CPPModernCharacteristics/CPPTupleAndBitsetMore.md)
-
 三. C++ STL 泛型编程
 
 - **01.** C++ STL 泛型编程 [->](./contents/CPPSTLCharacteristics/CPPSTL001.md)
@@ -44,6 +35,17 @@
 - **03.** C++ STL 有序关联容器 - 二叉树实现 [->](./contents/CPPSTLCharacteristics/CPPAssociatedContainer.md)
 - **04.** C++ STL 无序关联容器 - 散列表实现 [->](./contents/CPPSTLCharacteristics/CPPAssociatedHashDirectionary.md)
 - **05.** C++ STL 常用算法 [->](./contents/CPPSTLCharacteristics/CPPSTLAlgorithm001.md)
+
+四. C++ 现代特性
+
+- **01.** C++ 字符串处理 [->](./contents/CPPModernCharacteristics/CPPString.md)
+- **02.** C++ 正则表达式 [**->**](./contents/CPPModernCharacteristics/CPPRegularExpression.md)
+- **03.** C++ 异常处理 [->](./contents/CPPModernCharacteristics/CPPException.md)
+- **04.** C++ RTTI 和 cast类型转换 [->](./contents/CPPModernCharacteristics/CPPRTTI.md)
+- **05.** C++ 动态内存与智能指针 [->](./contents/CPPModernCharacteristics/CPPSmartPointer.md)
+- **06.** C++ tuple、bitset、随机数 [->](./contents/CPPModernCharacteristics/CPPTupleAndBitsetMore.md)
+- **07.** C++ 日期和时间工具 chrono [->](./contents/CPPModernCharacteristics/CPPChrono.md)
+
 
 五. C++ 高阶函数
 

@@ -12,9 +12,10 @@
 **笔记目录:**
 
 * **00.** C++ 并发相关概念和原理 [->](./Theory)
-* **01.** C++ 线程初探 [->](./CPPThreadControl.md)
-* **02.** C++ 在线程间共享数据 [->](./CPPThreadShareData.md)
-* **03.** C++ 并发操作的同步 [->](./CPPFutureAsync.md)
+* **01.** C++ 线程初探 [->](./contents/CPPThreadControl.md)
+* **02.** C++ 在线程间共享数据 [->](./contents/CPPThreadShareData.md)
+* **03.** C++ 并发操作的同步 [->](./contents/CPPFutureAsync.md)
+* **04.** C++ 内存模型与原子操作 [->](./contents/CPPAtomicAndMemoryModel.md)
 
 
 线程池线程数量最优值：**2*CPU**

@@ -6,8 +6,11 @@
 - [x] [1. 并发线程同步概述](#1-并发线程同步概述)
 - [x] [2. 条件变量机制](#2-条件变量机制)
 - [x] [3. condition_variable](#3-condition_variable)
-- [x] [4. 创建一个后台任务与获得返回值](#4-创建后台任务与返回值)
+- [x] [4. 创建一个后台任务与获得返回值](##4-创建一个后台任务与获得返回值)
 - [x] [5. future](#5-future)
+- [x] [6. shared_future](#6-shared_future)
+- [x] [7. packaged_task](#7-packaged_task) 
+- [x] [8. promise](#8-promise) 
 
 -----
 
@@ -236,9 +239,9 @@ C++提供了 **std::futurn** 、**std:async** API来实现个功能,它们定义
 ```cpp
 //future_status 枚举值:
 enum class future_status {
-    ready,
-    timeout,
-    deferred
+    ready, //共享状态就绪，以及完成计算任务
+    timeout,//共享状态在经过指定的等待时间内仍未就绪，还在跑
+    deferred//共享状态持有的函数正在延迟运行，结果将仅在显式请求时计算
 };
 
 //launch 枚举值：
@@ -318,7 +321,7 @@ std::cout << "result: " << value<< std::endl;
 
 |函数|解释|
 |:----|:----|
-|get()|获取异步任务返回的结果，如果任务线程已经执行完毕，直接返回，否则阻塞等待！|
+|get()|获取异步任务返回的结果，如果任务线程已经执行完毕，直接返回，否则阻塞等待！ **只能执行一次** |
 |valid()|检查 future 是否拥有共享状态|
 |wait()|等待结果变得可用|
 |std::future_status wait_for(duration) const;|等待结果，如果在指定的超时间隔后仍然无法得到结果，则返回。|
@@ -339,8 +342,97 @@ std::future<int> result = std::async(std::launch::deferred,
 //如果result不调 get或者wait方法，线程都不会执行
 //执行任务的线程甚至可能是当前线程，而不是新开一个线程
 ```
+### [6. shared_future](#)
+std::shared_future提供了一种访问异步操作结果的机制；不同于std::future，std::shared_future允许多个线程等待同一个共享状态；
+不同于std::future仅支持移动操作，std::shared_future既支持移动操作也支持拷贝操作，而且多个shared_future对象可以引用相同的共享状态。
 
-### [6. packaged_task](#) 
+```cpp
+template< class T > class shared_future;
+template< class T > class shared_future<T&>;
+template<>          class shared_future<void>;
+```
+
+std::shared_future对象可以通过std::future对象隐式转换，也可以通过显示调用std::future的share方法显示转换，在这两种情况下，原std::future对象都将变得无效。
+
+```cpp
+std::future<std::pair<bool,double>> isSuccess = /* ... */ ;
+
+//写法
+std::shared_future<std::pair<bool,double>> _share_future = isSuccess.share();
+//写法二
+//std::shared_future<std::pair<bool,double>> _share_future = isSuccess.share();
+//写法三
+//std::shared_future<std::pair<bool,double>> _share_future(std::move(isSuccess));
+```
+
+共享状态(shared state)的生存期至少要持续到与之关联的最后一个对象被销毁为止。与std::future不同，通过shared_future::get检索的值不会释放共享对象的所有权。
+
+#### [6.1 成员函数](#)
+**内部函数成员和接口**： 和future差不多，只是没有 share 方法。
+
+新增了一个构造函数 **shared_future( std::future<T>&& other ) noexcept;** 意味着可以传递一个future右值。
+
+```cpp
+shared_future() noexcept;
+
+shared_future( const shared_future& other );
+
+shared_future( const shared_future& other ) noexcept;
+
+shared_future( std::future<T>&& other ) noexcept;
+
+shared_future( shared_future&& other ) noexcept;
+```
+也意味着可以直接支持隐式转换, async方法返回一个右值 future！
+```cpp
+std::shared_future<double> isSuccess = std::async(/**/);
+```
+
+#### [6.2 使用例子](#)
+**使用例子**:
+```cpp
+int main(int argc, char *argv[]){
+    //三个线程，其中一个发出信号，另外两个才开始执行
+    std::future<std::pair<bool,double>> isSuccess = std::async([]()->std::pair<bool,double> {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::bernoulli_distribution d(0.5);
+        return std::make_pair(d(gen), 3.14);
+    });
+
+    std::shared_future<std::pair<bool,double>> _share_future = isSuccess.share();
+    //写法二
+    //std::shared_future<std::pair<bool,double>> _share_future = isSuccess.share();
+    //写法三
+    //std::shared_future<std::pair<bool,double>> _share_future(std::move(isSuccess));
+
+    std::thread task1([](std::shared_future<std::pair<bool,double>> &_future){
+        auto result = _future.get();
+        if (result.first == true){
+            printf("thread 1 get value: %lf\n" , result.second );
+        }else{
+            printf("th 1: no value\n");
+        }
+    }, std::ref(_share_future));
+
+
+    std::thread task2([](std::shared_future<std::pair<bool,double>> &_future){
+        auto result = _future.get();
+        if (result.first == true){
+            printf("thread 2 get value: %lf\n" , result.second );
+        }else{
+            printf("th 2: no value\n");
+        }
+    }, std::ref(_share_future));
+
+    task1.join();
+    task2.join();
+    std::cin.get();
+    return 0;
+}
+```
+
+### [7. packaged_task](#) 
 类模板 std::packaged_task **包装**任何可调用 (Callable) 目标（函数、 lambda 表达式、 bind 表达式或其他函数对象），使得能
 异步调用它。其返回值或所抛异常被存储于能通过 std::future 对象访问的共享状态中，**可以作为线程池的构件单元！**
 
@@ -381,7 +473,7 @@ int main(int argc, char *argv[]){
 }
 ```
 
-#### [6.1 构造函数](#)
+#### [7.1 构造函数](#)
 默认构造函数，支持移动操作，不支持复制拷贝，但是支持赋值移动操作符。
 
 ```cpp
@@ -393,7 +485,7 @@ template <class F, class Allocator>
 explicit packaged_task( std::allocator_arg_t, const Allocator& a, F&& f );
 ```
 
-#### [6.2 接口方法](#)
+#### [7.2 接口方法](#)
 常用的方法只有一个 get 方法， 多了解一点就是wait。
 
 |函数|解释|
@@ -403,7 +495,7 @@ explicit packaged_task( std::allocator_arg_t, const Allocator& a, F&& f );
 |operator()|执行函数|
 |reset|重置状态，抛弃任何先前执行的存储结果|
 
-#### [6.3 直接调用packaged_task](#)
+#### [7.3 直接调用packaged_task](#)
 packaged_task对象也是一个可调用对象， 是可以直接调用的，前提是已经具有可调用函数了。
 
 ```cpp
@@ -417,7 +509,7 @@ std::future<double> result = myTaskPkg.get_future();
 std::cout << "result: "<< result.get() << std::endl;
 ```
 
-#### [6.4 任务容器](#)
+#### [7.4 任务容器](#)
 以下有两个函数，将这个两个函数包装以下，然后用一个列表作为容器，再使用线程进行执行。
 
 ```cpp
@@ -472,10 +564,91 @@ int main(int argc, char *argv[]){
 }
 ```
 
-### [7. promise](#) 
-这个东西**可以实现线程间的通信**，C++11中的std::promise是个模板类。一个std::promise对象可以存储由future对象(可能在另一个线程中)检索
-的T类型的值或派生自std::exception的异常，并提供一个同步点。
+### [8. promise](#) 
+这个东西**可以实现线程间的通信**,std::promise是个模板类, 其对象可以存储由future对象(可能在另一个线程中)检索
+的T类型的值或派生自std::exception的异常，并提供一个**同步点**, 可以实现同步功能。
 
+
+```cpp
+void getValueFromNetWork(std::promise<double>& _promise){
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    _promise.set_value(200);
+}
+```
+
+```cpp
+int main(int argc, char *argv[]){
+
+    std::promise<double> net_promise;
+    std::future<double> net_future = net_promise.get_future();
+
+    std::thread task(getValueFromNetWork, std::ref(net_promise));
+    task.join();// ==
+    std::cout << "task result: " << net_future.get() << std::endl;
+    return 0;
+}
+```
+
+#### [8.1 基本函数成员](#)
+默认构造函数会初始化一个空的共享状态；禁止拷贝构造，同时赋值操作被禁止，只提供了移动构造；另外支持带allocator的构造函数。
+
+**operator=** 函数：禁用拷贝赋值，但可以移动赋值。
+
+```cpp
+promise();
+template< class Alloc >
+promise( std::allocator_arg_t, const Alloc& alloc );
+promise( promise&& other ) noexcept;
+promise( const promise& other ) = delete;
+```
+
+#### [8.2 接口函数](#)
+利用下面方法，实现两个线程的通信, 但是这种通信只能传递一次！
+
+|函数|解释|
+|:----|:----|
+|swap函数|交换 promise 的共享状态。|
+|**get_future** 函数|返回一个与promise对象共享状态关联的std::future对象。当就绪时，std::future对象就可以访问promise对象在共享状态上设置的值或异常。每个promise共享状态仅能被一个std::future对象检索。若调用此函数后，promise应在某个时刻使其共享状态准备就绪(通过设置值或异常)，否则一个std::future_error将在销毁时自动准备就绪。|
+|**set_value** 函数|即设置共享状态的值，共享状态的标志设置为ready。|
+|set_value_at_thread_exit函数|设置共享状态的值，但并不将该共享状态的标志设置为ready，当线程退出时，该promise对象会自动设置为ready。|
+|set_exception函数|设置共享状态的异常指针，共享状态的标志设置为ready。|
+|set_exception_at_thread_exit函数|设置共享状态的异常指针，但并不将该共享状态的标志设置为ready，当线程退出时，该promise对象会自动设置为ready|
+
+
+```cpp
+void setValueFromNetWork(std::promise<double>&& _promise){
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    _promise.set_value(200);
+}
+
+void getValueByPromise(std::future<double> &_future){
+    std::cout << _future.get() << std::endl;
+}
+
+/*
+void getValueByPromise(std::future<double> &_future){
+    std::future_status status = std::future_status::timeout;
+    do{
+        status = _future.wait_for(std::chrono::milliseconds (500));
+        printf("wait 0.5s ...\n");
+    }while (status != std::future_status::ready);
+    std::cout << "result: " << _future.get() << std::endl;
+}
+*/
+int main(int argc, char *argv[]){
+    std::promise<double> p;
+    std::future<double> future_from_p = p.get_future();
+
+    std::thread task1(setValueFromNetWork, std::move(p));
+    std::thread task2(getValueByPromise, std::ref(future_from_p));
+
+    task1.detach();
+    task2.detach();
+
+    std::cin.get();
+    return 0;
+}
+```
 
 -----
 
