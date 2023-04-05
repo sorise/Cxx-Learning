@@ -5,9 +5,11 @@
 -----
 - [x] [1. C++ 内存模型](##1-c-内存模型)
 - [x] [2. C++ 原子操作](#2-c-原子操作)
-- [x] [3. ](#3-)
-- [x] [4. ](#4-)
-- [x] [5. ](#5-)
+- [x] [3. std::atomic](#3-std-atomic)
+- [x] [4. std::atomic_flag](#4-std-atomic_flag)
+- [x] [5. std::memory_order](#5-std-memory_order)
+- [x] [6. 原子操作相关API](#6-原子操作相关api)
+
 -----
 
 ### [1. C++ 内存模型](#)
@@ -95,10 +97,12 @@ task2.join();
 std::cout << "the actually value: "<< i << std::endl;
 ```
 
-### [3. atomic](#) 
-在头文件 **#include \<atomic\>** 和头文件 **\<memory\>** 定义 中定义，C++ 在底层帮你完成了对内置数据类型的操作原子化。
-每个 std::atomic 模板的实例化和全特化定义一个原子类型， 可以在多线程中实现对单个变量操作的原子化，相当于在底层加锁了， 
-[相关API https://zh.cppreference.com/w/cpp/atomic/atomic](https://zh.cppreference.com/w/cpp/atomic/atomic) 。
+### [3. std::atomic](#) 
+标准原子类型在头文件 **#include \<atomic\>** 和头文件 **\<memory\>** 中定义，这些类型的操作全部都是原子化的，并且C++内置的
+原子操作也仅仅支持这些类型。通过互斥量加锁的方式，我们自己也可以自己实现相关操作的原子化！
+
+这些原子类型几乎都具备成员函数 **is_lock_free** 准许使用者判断某一给定类型上的操作是能够由 **原子指令** 直接实现(true)，还是要
+**借助编译器和程序库的内部锁**来实现(false)。
 
 ```cpp
 template< class T >
@@ -115,6 +119,10 @@ struct atomic<std::shared_ptr<U>>;
 template<class U>
 struct atomic<std::weak_ptr<U>>;
 ```
+
+#### [3.1 支持原子操作的类型](#)
+每个 std::atomic 模板的实例化和全特化定义一个原子类型， 可以在多线程中实现对单个变量操作的原子化，相当于在底层加锁了， 
+[相关API https://zh.cppreference.com/w/cpp/atomic/atomic](https://zh.cppreference.com/w/cpp/atomic/atomic) 。
 
 **对整数类型的特化**
 
@@ -136,7 +144,9 @@ struct atomic<std::weak_ptr<U>>;
 
 无操作导致未定义行为，即使结果不能以浮点类型表示。有效的浮点环境可能与调用方线程的浮点环境不同。
 
-#### [3.1 构造函数](#)
+**对指针类型的特化** 对所有指针类型的部分特化 `std::atomic<U*>`。
+
+#### [3.2 构造函数](#)
 原子对象不支持拷贝构造函数操作！
 
 ```cpp
@@ -153,20 +163,195 @@ T operator=( T desired ) volatile noexcept;
 atomic& operator=( const atomic& ) = delete;
 atomic& operator=( const atomic& ) volatile = delete;
 ```
-#### [3.2 成员函数](#)
+#### [3.3 成员函数](#)
 成员函数很许多，看看就懂！
 
 |函数|说明|
 |:----|:----|
 |bool is_lock_free()|检查原子对象是否免锁|
+|store(T arg,std::memory_order order)|原子地以非原子对象替换原子对象的值|
+|load|原子地加载并返回原子变量的当前值| 
+| **静态 is_always_lock_free** |指示该类型是否始终免锁|
+|fetch_add(T arg,std::memory_order order)|原子地将参数加到存储于原子对象的值，并返回先前保有的值|
+|fetch_sub(T arg,std::memory_order order)|原子地从存储于原子对象的值减去参数，并获得先前保有的值|
+|fetch_and(T arg,std::memory_order order)|原子地进行参数和原子对象的值的逐位与，并获得先前保有的值|
+|fetch_or(T arg,std::memory_order order)|原子地进行参数和原子对象的值的逐位或，并获得先前保有的值|
+|fetch_xor(T arg,std::memory_order order)|原子地进行参数和原子对象的值的逐位异或，并获得先前保有的值|
+|自增、自减运算符| `operator++`、`operator++(int)`、`operator--`、`operator--(int)`|
+|其他运算符|`operator+=`、`operator-=`、`operator&=`、`operator\|=`、`operator^=`|
 
- 
+#### [3.4 std::memory_order](#)
+**对于原子类型上的每一种操作，我们都可以提供额外的参数** std::memory_order， 它指定内存访问，包括常规的非原子内存访问，如何围绕原子操作排序。
+
+[**通常情况下，默认使用 memory_order_seq_cst，所以你如果不确定怎么这些 memory order，就用这个。**](#)
+```cpp
+typedef enum memory_order {
+    memory_order_relaxed,
+    memory_order_consume,
+    memory_order_acquire,
+    memory_order_release,
+    memory_order_acq_rel,
+    memory_order_seq_cst
+} memory_order;
+```
+
+```cpp
+void do_work()
+{
+    data.fetch_add(1, std::memory_order_relaxed);
+}
+```
 
 
+### [4. std::atomic_flag](#) 
+std::atomic_flag 是原子布尔类型。不同于所有 std::atomic 的特化，它保证是免锁的。不同于 std::atomic\<bool\> ， std::atomic_flag 不提供加载或存储操作。
 
-### [4.](#) 
+c++11 \<atomic\> 头文件中最简单的原子类型: 。atomic_flag 一种简单的原子布尔类型，只支持两种操作，test-and-set 和 clear,只有两种状态，`0/1` 。
 
-### [5.](#) 
+**只能如此操作！**，永远以置0状态开始，
+```cpp
+std::atomic_flag flag = ATOMIC_FLAG_INIT; //置 0
+```
+
+#### [4.1 构造](#)
+std::atomic_flag 构造函数如下, std::atomic_flag **只有默认构造函数，拷贝构造函数已被禁用**，因此不能从其他的 std::atomic_flag 对象构造一个新的 std::atomic_flag 对象。
+```cpp
+atomic_flag() noexcept = default;
+atomic_flag (const atomic_flag&T) = delete;
+```
+如果在初始化时没有明确使用 ATOMIC_FLAG_INIT初始化，那么新创建的 std::atomic_flag 对象的状态是未指定的（unspecified）（既没有被 set 也没有被 clear。）另外，a
+tomic_flag不能被拷贝，也不能 move 赋值。
+
+ATOMIC_FLAG_INIT: 如果某个 std::atomic_flag 对象使用该宏初始化，那么可以保证该 std::atomic_flag 对象在创建时处于 clear 状态。
+
+#### [4.2 test_and_set](#)
+**原子地设置标志为 true 并返回其先前值** , std::atomic_flag 的 test_and_set 函数原型如下：
+
+```cpp
+bool test_and_set (memory_order sync = memory_order_seq_cst) volatile noexcept;
+bool test_and_set (memory_order sync = memory_order_seq_cst) noexcept;
+```
+test_and_set() 函数检查 std::atomic_flag 标志，如果 std::atomic_flag 之前没有被设置过，则设置 std::atomic_flag 的标
+志，并返回先前该 std::atomic_flag 对象是否被设置过，如果之前 std::atomic_flag 对象已被设置，则返回 true，否则返回 false。
+
+#### [4.3 clear](#)
+**原子地设置标志值为 false** , 清除 std::atomic_flag 对象的标志位，即设置 atomic_flag 的值为 false。clear 函数原型如下：
+
+```cpp
+void clear (memory_order sync = memory_order_seq_cst) volatile noexcept;
+void clear (memory_order sync = memory_order_seq_cst) noexcept;
+```
+清除 std::atomic_flag 标志使得下一次调用 std::atomic_flag::test_and_set 返回 false。
+
+
+#### [4.4 例子](#)
+下面先看一个简单的例子，main() 函数中创建了 10 个线程进行计数，率先完成计数任务的线程输出自己的 ID，后续完成计数任务的线程不会输出自身 ID：
+
+```cpp
+#include <iostream>              // std::cout
+#include <atomic>                // std::atomic, std::atomic_flag, ATOMIC_FLAG_INIT
+#include <thread>                // std::thread, std::this_thread::yield
+#include <vector>                // std::vector
+
+std::atomic<bool> ready(false);    // can be checked without being set
+std::atomic_flag winner = ATOMIC_FLAG_INIT;    // always set when checked
+
+void count1m(int id)
+{
+    while (!ready) {
+        std::this_thread::yield();
+    } // 等待主线程中设置 ready 为 true.
+
+    for (int i = 0; i < 1000000; ++i) {
+    } // 计数.
+
+    // 如果某个线程率先执行完上面的计数过程，则输出自己的 ID.
+    // 此后其他线程执行 test_and_set 是 if 语句判断为 false，
+    // 因此不会输出自身 ID.
+    if (!winner.test_and_set()) {
+        std::cout << "thread #" << id << " won!\n";
+    }
+};
+
+int main()
+{
+    std::vector<std::thread> threads;
+    std::cout << "spawning 10 threads that count to 1 million...\n";
+    for (int i = 1; i <= 10; ++i)
+        threads.push_back(std::thread(count1m, i));
+    ready = true;
+
+    for (auto & th:threads)
+        th.join();
+
+    return 0;
+}
+```
+
+
+### [5. std::memory_order](#) 
+memory_order 枚举值的解释，请参考`《C++ 并发编程实战》Edition 2 P149-167` 的内容，属于理论内容！
+
+
+#### [5.1 memory_order_seq_cst](#)
+顺序一致性内存次序，所有以它为标记的操作形成但一的**全局总操作顺序** (分布式系统中的线性一致性模型)，它要求在所有线程间进行全局同步，代价最高，使用不当造成严重性能顺序。
+整个多线程的执行就好像在一个单线程上面执行一样！
+
+
+#### [5.2 memory_order_relaxed](#)
+**宽松次序**：我不管你们多线程之间的代码谁先执行，谁后执行，但是单个线程内部的**原子操作**代码一定是先后执行的！
+
+```cpp
+void threaTask(){
+    x.store(true, std::memory_order::memory_order_relaxed); //先执行
+    y.store(23, std::memory_order::memory_order_relaxed);//后执行
+}
+```
+#### [5.3 memory_order_acquire和memory_order_release](#)
+前者可以理解为读操作，后者可以理解为写操作，比起 **宽松次序** 多的就是在多线程之间维持 写-读 顺序！
+如下锁是，线程2 先执行，因为要读数据得等写操作完成
+
+```cpp
+//后执行 线程1 
+void threaAcquire(){
+    v.store(true, std::memory_order::memory_order_release); //后执行  读
+}
+
+//先执行 线程2 
+void threaRelease(){
+    int result = v.load(std::memory_order::memory_order_acquire); //先执行 写
+}
+```
+
+#### [5.4 memory_order_acq_rel](#)
+这个操作是写读操作，对读取和写入施加 acquire-release 语义，无法被重排。
+
+
+#### [5.5 memory_order_consume](#)
+数据依赖 - （前序依赖 和 携带依赖） 消费者的意思，它的执行一定在  memory_order_acq_rel memory_order_release memory_order_seq_cst 标记的原子操作之后
+执行～
+
+### [6. 原子操作相关API](#)
+为了内存同步顺序提供了许多的API！
+
+#### [6.1 atomic_thread_fence](#)
+建立非原子和宽松原子访问的以 order 指示的内存同步顺序，而无关联的原子操作，栅栏也被称为 **内存卡**、**内存屏障** 。
+
+```cpp
+//线程1 肯定后执行完 因为 memory_order_acquire
+void threaRelease(){
+    while(!y.load(stf::memory_order_relaxed));
+    std::atomic_thread_fence(std::memory_order::memory_order_acquire); 
+    z = x.load( std::memory_order::memory_order_relaxed);
+}
+
+//线程2 先执行 因为 memory_order_release
+void threaAcquire(){
+    x.store(true, std::memory_order::memory_order_relaxed); //先执行
+    std::atomic_thread_fence(std::memory_order::memory_order_release); // 栅栏
+    y.store(true, std::memory_order::memory_order_relaxed); //先执行
+}
+```
 
 -----
 时间: [] 
