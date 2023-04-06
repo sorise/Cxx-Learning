@@ -6,7 +6,7 @@
 - [x] [1. 并发线程同步概述](#1-并发线程同步概述)
 - [x] [2. 条件变量机制](#2-条件变量机制)
 - [x] [3. condition_variable](#3-condition_variable)
-- [x] [4. 创建一个后台任务与获得返回值](##4-创建一个后台任务与获得返回值)
+- [x] [4. 创建一个后台任务与获得返回值](#4-创建一个后台任务与获得返回值)
 - [x] [5. future](#5-future)
 - [x] [6. shared_future](#6-shared_future)
 - [x] [7. packaged_task](#7-packaged_task) 
@@ -272,11 +272,17 @@ int main(int argc, char *argv[]){
 ```
 
 #### [4.1 async](#)
-std::async 是一个**函数模板**，用来启动一个异步任务。相对于 thread ，std::future 是更高级的抽象，异步返回结果保存在 std::future 中，使用者可以不必进行线程细节的管理。
+std::async 是一个**函数模板**，用来 **启动一个异步任务** 。相对于 thread ，std::future 是更高级的抽象，异步返回结果保存在 std::future 中，使用者可以不必进行线程细节的管理。
+这个方法在使用策略2的时候可能创建一个新的线程来执行任务，也可能不创建新线程就使用当前线程完成异步任务！
 
-std::async 有两种启动策略：
-1. std::launch::async:：函数必须以异步方式运行，即创建新的线程。
+std::async 有几种启动策略：
+1. std::launch::async ：函数必须以异步方式运行，即创建新的线程。
 2. std::launch::deferred：函数只有在 std:async 所返回的期值的 get 或 wait 得到调用时才执行、并且调用方会阻塞至运行结束，否则不执行。
+3. std::launch::async|std::launch::deferred 调用std:async的行为可能是1或者2！
+4. 不指定策略，采用策略3
+
+由于系统资源紧张，那么创建线程就可能会失败，如果使用策略1,2,3,std::async就不会创建线程，而用当前线程完成任务，系统不会崩溃，
+但是如果使用策略1，程序就会崩溃！
 
 若没有指定策略，则会执行默认策略，将会由操作系统决定是否启动新的线程。
 ```cpp

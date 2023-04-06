@@ -5,9 +5,9 @@
 -----
 - [x] [1. C++ 内存模型](##1-c-内存模型)
 - [x] [2. C++ 原子操作](#2-c-原子操作)
-- [x] [3. std::atomic](#3-std-atomic)
-- [x] [4. std::atomic_flag](#4-std-atomic_flag)
-- [x] [5. std::memory_order](#5-std-memory_order)
+- [x] [3. std::atomic](#3-stdatomic)
+- [x] [4. std::atomic_flag](#4-stdatomic_flag)
+- [x] [5. std::memory_order](#5-stdmemory_order)
 - [x] [6. 原子操作相关API](#6-原子操作相关api)
 
 -----
@@ -164,7 +164,7 @@ atomic& operator=( const atomic& ) = delete;
 atomic& operator=( const atomic& ) volatile = delete;
 ```
 #### [3.3 成员函数](#)
-成员函数很许多，看看就懂！
+成员函数很许多，看看就懂！ **只有可以使用的成员函数支持原子操作**
 
 |函数|说明|
 |:----|:----|
@@ -179,6 +179,16 @@ atomic& operator=( const atomic& ) volatile = delete;
 |fetch_xor(T arg,std::memory_order order)|原子地进行参数和原子对象的值的逐位异或，并获得先前保有的值|
 |自增、自减运算符| `operator++`、`operator++(int)`、`operator--`、`operator--(int)`|
 |其他运算符|`operator+=`、`operator-=`、`operator&=`、`operator\|=`、`operator^=`|
+
+```cpp
+std::atomic<int> count;
+
+count++; //支持原子操作
+
+count = count + 1; //不支持原子操作！ cout 的结果不确定！
+
+count.fetch_add(2, std::memory_order_relaxed); //原子操作
+```
 
 #### [3.4 std::memory_order](#)
 **对于原子类型上的每一种操作，我们都可以提供额外的参数** std::memory_order， 它指定内存访问，包括常规的非原子内存访问，如何围绕原子操作排序。
