@@ -442,18 +442,33 @@ m_DiagTransportClient = m_Client;
 #### [2.10 add_subdirectory](#)
 添加子项目目录，如果有该条语句，就先会跑去执行子项目的cmake代码，这样会导致一些需要执行后立马生效的语句作用不到，比如include_directories和link_directories如果执行在这条语句后面。
 
-则他们添加的目录在子项目中无法生效。有些命令如target_include_directories和target_link_directories是根据目标target是否被链接使用来生效的，所以这些命令的作用范围与执行顺序无关，
+则他们添加的目录在子项目中无法生效。有些命令如 `target_include_directories` 和 `target_link_directories` 是根据目标target是否被链接使用来生效的，所以这些命令的作用范围与执行顺序无关，
 且恰好同一个cmake项目中产生的库文件是可以直接通过名称链接的，无论链接对象是在子目录还是父目录。
 
-```shell
+```cmake
 add_subdirectory(source_dir [binary_dir] [EXCLUDE_FROM_ALL])
 ```
 * **source_dir** :指定源CMakeLists.txt和代码文件所在的目录。如果它是一个相对路径，它将根据当前目录（典型用法）进行评估，但它也可能是一个绝对路径。
-* **binary_dir** :指定放置输出文件的目录。如果它是一个相对路径，它将相对于当前输出目录进行评估，但它也可能是一个绝对路径。如果未指定binary_dir，则在展开任何相对路径之前，将使用source_dir的值（典型用法）
+* **binary_dir** :通常 binaryDir 不需要指定，不指定的情况下，CMake 会在构建目录中对应的位置创建和源码目录对应的目录，用于存放构建输出。但是当 sourceDir 是源外路径的话，binaryDir 需要明确指定。
 * **EXCLUDE_FROM_ALL** : 当指定了该参数，则子目录下的目标不会被父目录下的目标文件包含进去，父目录的CMakeLists.txt不会构建子目录的目标文件，必须在子目录下显式去构建。
 例外情况：当父目录的目标依赖于子目录的目标，则子目录的目标仍然会被构建出来以满足依赖关系（例如使用了target_link_libraries）。
 
-```
+
+甚至可能有多个使用相同源代码树的构建树。因此，开发人员需要一些 CMake 的帮助来确定感兴趣的目录。为此，CMake 提供了一些变量来跟踪当前正在处理
+的 CMakeLists.txt 文件的源和二进制目录。以下是一些只读变量，随着每个文件被 CMake 处理，这些变量会自动更新。它们始终包含绝对路径。
+
+* **CMAKE_SOURCE_DIR**
+    源代码的最顶级目录（即最顶级 CMakeLists.txt 文件所在的位置）,这个变量的值永远不会改变。
+* **CMAKE_BINARY_DIR**
+    构建目录的最顶级目录。这个变量的值永远不会改变。
+* **CMAKE_CURRENT_SOURCE_DIR**
+    当前正在被 CMake 处理的 CMakeLists.txt 文件所在的目录。每当由 add_subdirectory() 调用处理新文件时，它都会更新，当处理该目录完成时，它会被还原回原来的值。
+* **CMAKE_CURRENT_BINARY_DIR**
+    由 CMake 处理的当前 CMakeLists.txt 文件所对应的构建目录。每次调用 add_subdirectory() 时都会更改该目录，当 add_subdirectory() 返回时将其恢复。
+
+
+
+```tree
 ├── CMakeLists.txt
 ├── doc
 ├── include

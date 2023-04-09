@@ -31,6 +31,22 @@ else()              # optional block
   <commands>
 endif()
 ```
+
+**基本条件表达式**
+```
+if(value)
+```
+* ON、YES、TRUE、Y 被视为真
+* OFF、NO、FALSE、N、IGNORE、NOTFOUND、空字符串、以 -NOTFOUND 结尾的字符串被视为假。
+* 如果是一个数字，将根据 C 语言的规则转换成 bool 值。
+* 如果上述三种情况都不适用，那该条件表达式将被当作一个变量的名字。
+    * 如果没有使用引号，那该变量的值会和为假的值对比，如果匹配上则为假，否则为真。如果其值是空字符串则为假。
+    * 如果使用引号
+        * cmake 3.1 及以后，如果该字符串不匹配任何为真的值，那该条件表达式为假。
+        * cmake 3.1 以前，如果该字符串匹配到任何存在的变量名字，则会按照变量处理。
+    * `if(ENV{some_var})` 这种形式的条件表达式永远为假，所以不要使用环境变量。
+
+
 **逻辑表达式:** **NOT**、**AND**、**OR**
 ```shell
 if(NOT <condition>)
@@ -87,6 +103,17 @@ if(<variable|string> VERSION_LESS_EQUAL <variable|string>)
 if(<variable|string> VERSION_GREATER_EQUAL <variable|string>)
 ```
 
+```cmake
+MESSAGE(NOTICE ${CMAKE_SYSTEM})      #Linux-5.19.0-38-generic
+MESSAGE(NOTICE ${CMAKE_SYSTEM_NAME}) #Linux
+MESSAGE(NOTICE ${UNIX})              #1
+MESSAGE(NOTICE ${WIN32})             #
+IF (CMAKE_SYSTEM_NAME MATCHES "Linux") #TRUE
+    MESSAGE(NOTICE "the os is linux")
+ENDIF()
+
+```
+
 #### [1.3 File Operations](#)
 文件操作对比运算符！
 
@@ -120,12 +147,17 @@ if(IS_SYMLINK file-name)
 if(IS_ABSOLUTE path)
 ```
 
-#### [1.4 判断是否定义了某个变量](#)
-使用IF可以判断是否定义了某个变量！
+#### [1.4 判断是否存在](#)
+使用IF可以判断是否定义了某个变量、表达式、策略、命令！
 
 * IF(DEFINED my_names)  是否定义了普通变量 my_names
 * IF(DEFINED CACHE{NETWORK_VERSION_LASTED})  是否定义了缓存变量 NETWORK_VERSION_LASTED
 * IF(DEFINED ENV{user_name}) 是否定义了环境变量 user_name
+* IF(COMMAND name) 是否定义了某个变量
+* IF(POLICY name)  是否定义了某个策略
+* IF(TARGET name) 是否定义了某个目标
+* IF(TEST name) 是否定义了某个测试
+
 
 ```cmake
 SET(my_names [[kicker、miner、kicker]])
@@ -145,7 +177,32 @@ IF(DEFINED ENV{user_name})
 ELSEIF()
     MESSAGE(STATUS "NO DEFINE user_name")
 ENDIF()
+```
 
+其他命令：
+```cmake
+if(COMMAND name)
+if(POLICY name)
+if(TARGET name)
+if(TEST name)               # Available since CMake 3.4
+if(value IN_LIST listVar)   # Available since CMake 3.3
+
+if(DEFINED SOMEVAR)           # Checks for a CMake variable (regular or cache)
+if(DEFINED CACHE{SOMEVAR})    # Checks for a CMake cache variable
+if(DEFINED ENV{SOMEVAR})      # Checks for an environment variable
+```
+
+#### [1.5 正则表达式](#)
+正则表达式:
+
+```cmake
+if(value MATCHES regex)
+```
+
+```cmake
+if("Hi from ${who}" MATCHES "Hi from (Fred|Barney).*")
+		message("${CMAKE_MATCH_1} says hello")
+endif()
 ```
 
 ### [2. CMake 列表 list](#)
@@ -460,7 +517,7 @@ message(STATUS "running at: ${DT}")
 ```
 
 ### [5. Cmake while](#)
-可能用得较少... ,支持**break()** 指令提前结束循环! 支持**continue()**直接下一轮!
+可能用得较少... ,支持**break()** 指令提前结束循环! 支持 **continue()** 直接下一轮!
 
 ```cmake
 while(<condition>)
@@ -468,9 +525,18 @@ while(<condition>)
 endwhile()
 ```
 
+```cmake
+set(num 10)
+
+while(num GREATER 0)
+    message(STATUS "current num = ${num}")
+    math(EXPR num "${num} - 1")
+endwhile()
+```
+
 
 ### [6. Cmake foreach](#)
-CMake 迭代器！支持**break()** 指令提前结束循环! 支持**continue()**直接下一轮!
+CMake 迭代器！支持**break()** 指令提前结束循环! 支持 **continue()** 直接下一轮!
 
 ```cmake
 foreach(<loop_var> <items>)
@@ -534,7 +600,6 @@ endforeach()
 foreach(<loop_var> IN [LISTS [<lists>]] [ITEMS [<items>]])
 ```
 
-
 ```cmake
 set(A 0;1)
 set(B 2;3)
@@ -544,6 +609,21 @@ set(E "9;10")
 foreach(X IN LISTS A B C D E)
     message(STATUS "X=${X}")
 endforeach()
+```
+
+**ITEMS 用法:**
+```cmake
+set(names "remix" "cicer"  "umix")
+set(friend "mike")
+FOREACH (val IN LISTS names ITEMS ${friend} minis)
+    MESSAGE(NOTICE "item: ${val}")
+ENDFOREACH ()
+#[[
+item: remix
+item: cicer
+item: umix
+item: mike
+item: minis]]
 ```
 
 #### [6.4 迭代 ZIP_LISTS](#)

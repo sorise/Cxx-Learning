@@ -16,8 +16,8 @@
 |内置变量|名称|
 |:----|:----|
 | **1. PROJECT_NAME**|项目的名称|
-| **2. CMAKE_BINARY_DIR**|项目的二进制文件目录，即编译后的可执行文件和库文件的输出目录|
-| **3. CMAKE_SOURCE_DIR**|项目的源文件目录，即包含CMakeLists.txt文件的目录|
+| **2. CMAKE_BINARY_DIR**|项目的二进制文件目录，即编译后的可执行文件和库文件的输出目录，源代码的最顶级目录（即最顶级 CMakeLists.txt 文件所在的位置）,这个变量的值永远不会改变。|
+| **3. CMAKE_SOURCE_DIR**|项目的源文件目录，即包含CMakeLists.txt文件的目录，构建目录的最顶级目录。这个变量的值永远不会改变。|
 | **4. PROJECT_BINARY_DIR**|项目的二进制文件目录，即编译后的可执行文件和库文件的输出目录|
 | **5. PROJECT_SOURCE_DIR**|项目的源文件目录，即包含CMakeLists.txt文件的目录|
 | **6. CMAKE_C_STANDARD** |指定C语言的标准版本|
@@ -26,6 +26,8 @@
 | **9. CMAKE_SYSTEM_NAME**|指定当前操作系统名称（如Windows、Linux等）|
 | **10. CMAKE_SYSTEM_PROCESSOR** |指定当前处理器的类型（如x86、x86_64等）|
 | **11. CMAKE_CXX_STANDARD_REQUIRED** | 设置指定的C++编译器版本是必须的，如果不设置，或者为OFF，则指定版本不可用时，会使用上一版本。 |
+| **12. CMAKE_CURRENT_SOURCE_DIR**| 当前正在被 CMake 处理的 CMakeLists.txt 文件所在的目录。每当由 add_subdirectory() 调用处理新文件时，它都会更新，当处理该目录完成时，它会被还原回原来的值。|
+| **13. CMAKE_CURRENT_BINARY_DIR** |由 CMake 处理的当前 CMakeLists.txt 文件所对应的构建目录。每次调用 add_subdirectory() 时都会更改该目录，当 add_subdirectory() 返回时将其恢复。 |
 | **...** |**...** |
 
 
