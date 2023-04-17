@@ -15,4 +15,5 @@
 
 **参考网站：**
 
-C++ 参考手册 [https://zh.cppreference.com/w/cpp](https://zh.cppreference.com/w/cpp)
+C++ 参考手册 [https://zh.cppreference.com/w/cpp](https://zh.cppreference.com/w/cpp) 
+C++ 微软技术文档 [https://learn.microsoft.com/zh-cn/cpp](https://learn.microsoft.com/zh-cn/cpp)
