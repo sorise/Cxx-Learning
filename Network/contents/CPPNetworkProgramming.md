@@ -57,6 +57,32 @@ int socket(int domain, int type, int protocol);
 
 ![socket buffer](./assets/1149355056-0.jpg)
 
+```cpp
+int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+```
+
+* sockfd：待设置参数的 socket 文件描述符。
+* level：参数选项的定义层次。常用的层次有 SOL_SOCKET 表示基本的套接字选项，IPPROTO_TCP 表示 TCP 协议选项，IPPROTO_IP 表示 IP 协议选项，IPPROTO_IPV6 表示 IPv6 协议选项等。
+* optname：选项名。不同的 level 和选项，支持的选项名也不同。常用的选项包括：
+   * SO_REUSEADDR：设置地址重用，用于解决 bind() 失败的问题。
+   * SO_REUSEPORT：设置端口重用，用于解决多进程同时监听同一端口的问题。
+   * SO_LINGER：设置 socket 关闭后的行为。
+   * SO_SNDBUF 和 SO_RCVBUF：发送和接收缓冲区大小。
+   * SO_KEEPALIVE：开启 TCP 的心跳检测。
+   * TCP_NODELAY：禁用 Nagle 算法，提高 TCP 连接的实时性。
+* optval：指向要设置的选项值的指针，一般是一个特定类型的变量的指针。
+* optlen：指定要设置的选项值的大小。
+
+```cpp
+SOCKET socket = ...
+int nRcvBufferLen = 64*1024;
+int nSndBufferLen = 4*1024*1024;
+int nLen          = sizeof(int);
+ 
+setsockopt(socket, SOL_SOCKET, SO_SNDBUF, (char*)&nSndBufferLen, nLen);
+setsockopt(socket, SOL_SOCKET, SO_RCVBUF, (char*)&nRcvBufferLen, nLen);
+```
+
 
 write()/send() 并不立即向网络中传输数据，而是先将数据写入缓冲区中，再由TCP协议将数据从缓冲区发送到目标机器。一旦将数据写入到缓冲区，函数就可以成功返回，不管它们有没有到达目标机器，也不管它们何时被发送到网络，这些都是TCP协议负责的事情。
 
@@ -145,21 +171,6 @@ uint16_t htons (uint16_t __hostshort) //unsigned short类型从主机序转换�
 uint32_t htonl (uint32_t __hostlong)  //unsigned long类型从主机序转换到网络序   给IP用 
 uint32_t ntohl (uint32_t __netlong)   //把unsigned long类型从网络序转换到主机序 给IP用
 ```
-
-****
-
-#### [x.x 系统调用read()的返回错误场景](#)
-
-* EINTR：在读取到数据以前调用被信号所中断。
-* EAGAIN：使用 O_NONBLOCK 标志指定了非阻塞式输入输出,但当前没有数据可读或者使用了阻塞操作。
-* EIO：输入输出错误.可能是正处于后台进程组进程试图读取其控制终端,但读操作无效,或者被信号SIGTTIN所阻塞,或者其进程组是孤儿进程组.也可能执行的是读磁盘或者磁带机这样的底层输入输出错误。
-* EISDIR：fd 指向一个目录。
-* EBADF：fd 不是一个合法的文件描述符,或者不是为读操作而打开。
-* EINVAL：fd 所连接的对象不可读。
-* EFAULT：buf 超出用户可访问的地址空间。
-* EWOULDBLOCK：用于非阻塞模式，表示不需要重新读或者写。
-
-
 
 ### [4. 头文件说明](#) 
 注意由于标准尚未统一，所以在不同OS中头文件不一样！

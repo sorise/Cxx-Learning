@@ -5,8 +5,10 @@
 - [x] [1. Socket创建流程](#1-socket创建流程)
 - [x] [2. Socket接发函数](#2-socket接发函数)
 - [x] [3. Socket的一些问题](#3-socket的一些问题)
-- [x] [4. 单连接例子](#4-单连接例子)
+- [x] [4. TCP 单连接迭代服务器](#4-tcp-单连接迭代服务器)
 - [x] [5. TCP连接](#5-tcp连接)
+- [x] [6. 封装错误处理](#6-封装错误处理)
+
 -----
 
 ### [1. Socket创建流程](#)
@@ -96,7 +98,7 @@ int listen(int sockfd, int backlog);
 * backlog 指定同时能处理的最大连接要求，通常为 10 或者 5。最大值可设至 128
 
 #### [1.4 accept](#)
-阻塞等待客户端的连接请求，接受远程计算机的连接请求，建立起与客户机之间的通信连接。
+用在TCP连接中，阻塞等待客户端的连接请求，接受远程计算机的连接请求，建立起与客户机之间的通信连接。*
 ```cpp
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
@@ -137,21 +139,44 @@ int close(int fd);
 
 ### [2. socket接发函数](#) 
 对于socket的读写有两对函数，read/write 和send/recv 需要区分！
+* [由于在Linux中套接字也是文件，因而可以通过文件IO函数read,write进行数据传输。而Windows中却将文件和套接字区分开来，所以只能用send/recv进行数据传输！](#)
+* [linux中两者都有，windows只有后者！](#)
 
-#### [2.1 read、write](#)
+#### [2.1 read](#)
 服务器和客户端的连接已经建立好了，就剩调用网络I/O函数进行读写操作了。其中最简单的就属read()和write()函数了，它输入的参数较少，能够适应一般的应用场景，其函数返回值为接受/写入的字节数，函数原型如下：
 其实这个read和write就是c语言文件读写的函数。
 ```cpp
 #include <unistd.h>
 
 ssize_t read (int __fd, void *__buf, size_t __nbytes)
+```
+成功则返回实际接收到的字符数，可能会少于你所指定的接收长度。失败返回-1
+* `>` 1 表示实际接收到的字符数
+* `=` 0 已经读到结尾，对端已经关闭
+* -1 需要进一步派段 errno的值
+    * **EINTR**：在读取到数据以前调用被信号所中断。
+    * **EAGAIN**：使用 O_NONBLOCK 标志指定了非阻塞式输入输出,但当前没有数据可读或者使用了阻塞操作。
+    * **EWOULDBLOCK**：用于非阻塞模式，表示不需要重新读或者写。
+    * EIO：输入输出错误.可能是正处于后台进程组进程试图读取其控制终端,但读操作无效,或者被信号SIGTTIN所阻塞,或者其进程组是孤儿进程组.也可能执行的是读磁盘或者磁带机这样的底层输入输出错误。
+    * EISDIR：fd 指向一个目录。
+    * EBADF：fd 不是一个合法的文件描述符,或者不是为读操作而打开。
+    * EINVAL：fd 所连接的对象不可读。
+    * EFAULT：buf 超出用户可访问的地址空间。
+
+#### [2.2 write](#)
+写操作！
+
+```cpp
+#include <unistd.h>
+
 ssize_t write (int __fd, const void *__buf, size_t __n)
 ```
 * __fd为对应的文件描述符（服务器端为accept建立的，客户端为socket建立的）。
 * __buf为要读取和写入的缓冲区地址，由于数据的传输只能以字符串的形式，因此这里要强制类型转换为（char*）。
 * __n/__nbytes为要读取/写入数据的字节数
 
-#### [2.2 send](#)
+
+#### [2.3 send](#)
 **send和recv实际上分别是write和read函数的基础上扩展了第四个参数：**
 
 ```cpp
@@ -166,11 +191,13 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags);
 * len 表示长度
 * flags 通常为 0
     * 0：接收的是正常数据，无特殊行为。
-    * MSG_PEEK：系统缓冲区数据复制到提供的接收缓冲区，但是系统缓冲区内容并没有删除。
-    * MSG_OOB：表示处理带外数据。
+    * MSG_DONTWAIT:将单个I／O操作设置为非阻塞模式
+    * MSG_OOB:指明发送的是带外信息
+    * MSG_PEEK:可以查看可读的信息，在接收数据后不会将这些数据丢失
+    * MSG_WAITALL:通知内核直到读到请求的数据字节数时，才返回。
 
-#### [2.3 recv](#)
-接受数据！
+#### [2.4 recv](#)
+接受数据！ 
 ```cpp
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -182,6 +209,9 @@ int recv(int sockfd,void *buf,int len,unsigned int flags);
 * buf 表示缓冲区
 * len 表示缓冲区的长度
 * flags 通常为 0
+    * MSG_DONTROUTE:告诉内核，目标主机在本地网络，不用查路由表
+    * MSG_DONTWAIT:将单个I／O操作设置为非阻塞模式
+    * MSG_OOB:指明发送的是带外信息
 
 ### [3. socket的一些问题](#) 
 一些关于socket的基本问题！
@@ -217,7 +247,7 @@ sockaddr_in addr{
 recv跟read函数功能一样，都可以从套接口缓冲区sockfd中取数据到buf, 但是recv仅仅只能够用于套接口IO，并不能用于文件IO以及其它的IO，而read函数可以用于任何的IO；
 recv函数相比read函数多了一个flags参数，通过这个参数可以指定接收的行为。
 
-### [4. 单连接例子](#) 
+### [4. TCP 单连接例子](#) 
 服务端接受数据，客户端发送数据!
 
 #### [4.1 服务器](#)
@@ -379,10 +409,108 @@ TCP报文里面有很多的字段，需要了解一些基本知识，比如说�
 
 <img width="400px" src="./assets/20200829121601962.png" />
 
+终止一个连接要经过4次握手。这由TCP的半关闭（half-close）造成的。既然一个TCP连接是全双工（即数据在两个方向上能同时传递，可理解为两个方向相反的独立通道），因此每个方向必须单独地进行关闭。
 #### [5.4 滑动窗口协议](#)
 滑动窗口协议（Sliding Window Protocol），属于TCP协议的一种应用，用于网络数据传输时的流量控制，以避免拥塞的发生。
 该协议允许发送方在停止并等待确认前发送多个数据分组。由于发送方不必每发一个分组就停下来等待确认。因此该协议可以加速数据的传输，提高网络吞吐量。
 
 <img width="400px" src="./assets/42166d224f4a20a44fc2252895529822730ed004.jpeg" />
 
+#### [5.5 TCP状态转换图](#) 
+
+<img width="600px" src="./assets/4fd06dc0b3caa835985100cb304d77c595dd2bc524b86-ohxT5g_fw658.webp" />
+
+* **只有主动关闭TCP连接的一端会有2MSL等待！也就是TIME_WAIT状态！**
+
+### [6. 封装错误处理](#)
+在socket建立过程中，各个API都有出错的可能，错误处理就显得很重要，但是每个地方都写if判断就很麻烦，所以可以进行简单的封装，
+避免每个地方都进行麻烦的错误处理！
+
+#### [6.1 简单的函数封装](#)
+如下所示，只是简单的错误判断！
+
+```cpp
+int Socket(int domain,int type,int protocol){
+    auto socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd == -1) {
+        throw std::runtime_error("create the socket failed!");
+    }
+    return socket_fd;
+}
+
+int Bind(int socket_fd, const struct sockaddr *addr, socklen_t addrlen){
+    auto result = bind(socket_fd, addr, addrlen);
+    if (result == -1) {
+        throw std::runtime_error("bind occur error, please check the data sockaddr!");
+    }
+    return result;
+}
+
+void Listen(int socket_fd, int backlog){
+    auto result =  listen(socket_fd, backlog);
+    if (result == -1) {
+        throw std::runtime_error("listen occur error,the socket failed!");
+    }
+}
+
+int Accept(int socket_fd, struct sockaddr *addr, socklen_t *addrlen){
+    auto new_socket_fd = accept(socket_fd, addr, addrlen);
+    if (new_socket_fd == -1) {
+        throw std::runtime_error("accept occur error,the socket failed!");
+    }
+    return new_socket_fd;
+}
+```
+
+#### [6.2 面向对象式的封装](#)
+基本思想很简单，只是麻烦些，需要良好的面向对象设计能力！
+
+```cpp
+class Socket
+{
+public:
+	Socket();
+	Socket(SOCKET sock, const char* ip, int port);
+	~Socket();
+ 
+	//Windows系统中使用socket函数需要先调用WSAStartup需要初始化版本
+	static bool InitSocket();
+	//Windows系统中使用socket函数完毕后需要调用WSACleanup释放
+	static void UnInitSocket();
+ 
+	//设置可重用地址
+	void SetReuseAddr();
+	//设置非阻塞
+	void SetSockNonBlock();
+	//设置接收缓冲区大小
+	void SetRecvBuffSize(int size);
+	//设置发送缓冲区大小
+	void SetSendBuffSize(int size);
+	//地址绑定
+	bool Bind(const char* ip, int port);
+	//启动监听
+	bool Listen(int backlog);
+ 
+	//接收连接,返回一个已分配内存上的Socket指针, 需要手动管理释放,失败返回 nullptr
+	Socket* Accept();
+	//接收连接, 返回连接的socket
+	SOCKET Accept(struct sockaddr_in * addr, int * addrlen);
+ 
+	//发起连接
+	int Connect(const char* ip, int port);
+	//发起连接
+	int Connect(SOCKET sock, const char* ip, int port);
+	//发送数据
+	int Send(const char* buf, int size);
+	//接收数据
+	int Recv(char* buf, int size);
+	//关闭套接字
+	int Close();
+ 
+public:
+	SOCKET m_Sock;
+	char m_Ip[16];
+	short m_Port;
+};
+```
 -----
