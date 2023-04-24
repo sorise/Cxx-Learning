@@ -509,6 +509,9 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 | |SO_ERROR |int |获取错误状态并清除 |NO |
 | |SO_SNDTIMEO |发送超时 |int |YES |
 | |SO_RCVTIMEO |接受超时 |int |YES |
+| |SO_LINGER |发送完再关闭 |结构体 linger |YES |
+| |SO_RCVLOWAT |接收低潮限度 |int 字节数量|YES |
+| |SO_SNDLOWAT |发送低潮限度 |int 字节数量 |YES |
 |` `| | | | |
 |IPPROTO_IP |IP_TOS | |服务类型（TOS）字段 |YES |
 |` `| | | | |
@@ -521,7 +524,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 |` ` | | | | |
 
 
-#### [4.2 SO_TYPE](#)
+#### [4.2 获得Socket的类型](#)
 获得Socket的类型,值为SOCK_DGRAM、SOCK_STREAM......
 
 ```cpp
@@ -537,7 +540,7 @@ if(isSuccess != -1){
 }
 ```
 
-#### [4.3 TCP_DEFER_ACCEPT](#)
+#### [4.3 防止空连接攻击](#)
 使用TCP_DEFER_ACCEPT可以减少用户程序hold的连接数，也可以减少用户调用epoll_ctl和epoll_wait的次数，从而提高了程序的性能。
 设置listen套接字的TCP_DEFER_ACCEPT选项后， 只当一个链接有数据时是才会从accpet中返回（而不是三次握手完成)。**这是为防止空连接的攻击**！
 
@@ -552,7 +555,7 @@ setsockopt( listen_fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &timeout, sizeof(int) )
 
 性能四杀手：内存拷贝，内存分配，进程切换，系统调用。TCP_DEFER_ACCEPT 对性能的贡献，就在于 减少系统调用了。
 
-#### [4.4 SO_REUSEPORT - 01](#)
+#### [4.4 地址重用 - 01](#)
 设置地址复用，一般情况下服务端主动关闭后，由于有TIME_WAIT状态需要等待一会儿后，才能重启服务器，不然会报错
 端口已经被占有，通过设置地址复用，可以直接复用还没有完全关闭的Socket，这样就可以实现瞬间重启了，而不需要等待连接的彻底消亡！
 
@@ -567,7 +570,7 @@ Bind(fd, (const struct sockaddr*)&server_address, sizeof(server_address));
 ```
 **注意：必须在调用bind函数之前设置SO_REUSEADDR选项。**
 
-#### [4.4 SO_REUSEPORT - 02](#)
+#### [4.4 地址重用 - 02](#)
 如果要已经处于连接状态的soket在调用close(socket)后强制关闭，不经历TIME_WAIT的过程：
 
 ```cpp
@@ -576,7 +579,7 @@ setsockopt(fd,SOL_SOCKET ,SO_REUSEADDR,(const char*)& opt,sizeof(opt));
 //执行地址复用
 ```
 
-#### [4.5 SO_SNDTIMEO 、 SO_RCVTIMEO](#)
+#### [4.5 超时设置](#)
 在send(),recv()过程中有时由于网络状况等原因，发收不能预期进行,而设置收发时限：
 
 ```cpp
@@ -587,7 +590,7 @@ setsockopt(socket, SOL_S0CKET, SO_SNDTIMEO, (char *)&nNetTimeout,sizeof(int));
 setsockopt(socket, SOL_S0CKET, SO_RCVTIMEO, (char *)&nNetTimeout,sizeof(int));
 ```
 
-#### [4.6 SO_KEEPALIVE](#)
+#### [4.6 存活坚持](#)
 设置存活检测!
 ```cpp
 int opt = 1;
@@ -596,6 +599,86 @@ if (setsockopt (m_nSock, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int)) == -1)
     return 0;
 }
 ```
+
+#### [4.7 缓冲区大小](#)
+在send()的时候，返回的是实际发送出去的字节(同步)或发送到socket缓冲区的字节(异步)；系统默认的状态发送和接收一次为8688字节(约为8.5K)。
+在实际的过程中如果发送或是接收的数据量比较大，可以设置socket缓冲区，避免send(),recv()不断的循环收发：
+
+```cpp
+// 接收缓冲区
+int nRecvBufLen = 32 * 1024; //设置为32K
+setsockopt( s, SOL_SOCKET, SO_RCVBUF, ( const char* )&nRecvBufLen, sizeof( int ) );
+//发送缓冲区
+int nSendBufLen = 32*1024; //设置为32K
+setsockopt( s, SOL_SOCKET, SO_SNDBUF, ( const char* )&nSendBufLen, sizeof( int ) );
+```
+
+#### [4.8 不经过发送缓冲区拷贝](#)
+在发送数据的时，不执行由系统缓冲区到socket缓冲区的拷贝，以提高程序的性能。
+```cpp
+int nZero = 0;
+setsockopt( socket, SOL_SOCKET, SO_SNDBUF, ( char * )&nZero, sizeof( nZero ) );
+```
+
+#### [4.8 不经过接受缓冲区拷贝](#)
+在接收数据时，不执行将socket缓冲区的内容拷贝到系统缓冲区：
+
+```cpp
+int nZero = 0;
+setsockopt( s, SOL_SOCKET, SO_RCVBUF, ( char * )&nZero, sizeof( int ) );
+```
+
+#### [4.9 UDP广播](#)
+一般在发送UDP数据报的时候，希望该socket发送的数据具有广播特性：
+```cpp
+BOOL bBroadcast = TRUE;
+setsockopt( s, SOL_SOCKET, SO_BROADCAST, ( const char* )&bBroadcast, sizeof( BOOL ) );
+```
+
+#### [4.10 accept设置](#)
+在client连接服务器过程中，如果处于非阻塞模式下的socket在connect()的过程中可以设置connect()延时,直到accpet()被调用(此设置只
+有在非阻塞的过程中有显著的作用，在阻塞的函数调用中作用不大)。
+
+```cpp
+BOOL bConditionalAccept = TRUE;
+setsockopt( s, SOL_SOCKET, SO_CONDITIONAL_ACCEPT, ( const char* )&bConditionalAccept, sizeof( BOOL ) );
+```
+
+#### [4.11 关闭前先发完](#)
+某些具体程序要求待未发送完的数据发送出去后再关闭socket，可通过设置让程序满足要求。
+
+```cpp
+struct linger {
+    u_short l_onoff;
+    u_short l_linger;
+};
+struct linger m_sLinger;
+
+m_sLinger.l_onoff = 1; //在调用close(socket)时还有数据未发送完，允许等待
+m_sLinger.l_linger = 5; //设置等待时间为5秒
+
+setsockopt( s, SOL_SOCKET, SO_LINGER, (const char*)&m_sLinger, sizeof(struct linger));
+```
+
+#### [4.12 接收低潮限度、发送低潮限度](#)
+每个套接口都有一个接收低潮限度和一个发送低潮限度。
+* 接收低潮限度：对于TCP套接口而言，接收缓冲区中的数据必须达到规定数量，内核才通知进程“可读”。比如触发select或者epoll，返回“套接口可读”。
+* 发送低潮限度：对于TCP套接口而言，和接收低潮限度一个道理。
+```cpp
+int sndlowat = 2048 ; //2k 字节
+setsockopt(c->fd, SOL_SOCKET, SO_SNDLOWAT, (const void *) &sndlowat, sizeof(int));
+```
+理解接收低潮限度：如果应用程序没有调用recv()去读取socket的接受缓冲区的数据，则接受缓冲区数据将注一直保存在接受缓冲区中，所以随着接受
+缓冲区接受到更多发送端发送缓冲区中的数据，则肯定会导致接受缓冲区溢出，所以设置一个接受低潮限度，当epoll监听到某一个socket的接受缓冲
+区的数据超过了接受低潮限度，则触发读就绪，使得epoll循环返回，开始处理读I/O事件。
+
+接收低潮限度：默认为1字节
+
+理解发送低潮限度：如果应用程序没有调用send()来copy应用程序buff中的数据到socket发送缓冲区中，则随着发送缓冲区的数据被内核通过tcp协议
+发送出去，最后socket发送缓冲区的数据越来越少，可用的剩余空间越来越多，最后超过发送缓冲区的发送低潮限度，则epoll监听到这个socket可写，使
+得epoll循环返回，开始处理写I/O事件。
+
+发送低潮限度：默认为2048字节
 
 ### [5 shutdown函数](#)
 调用 close()/closesocket() 函数意味着完全断开连接，即不能发送数据也不能接收数据，这种“生硬”的方式有时候会显得不太“优雅”。
@@ -634,5 +717,4 @@ close关闭连接，计数器-1，为0时释放底层为维护连接所构建的
 如果多个（多进程共用一个socket）文件描述符（socket）指向同一个连接时(dup函数赋值的文件描述符/或者子进程继承了父进程的文件描述符)，如果仅仅close其中一个文件描述符时，只
 要其他的fd还是打开状态，那么连接就不会断开，直到所有的文件描述符都被close之后
 
------
 

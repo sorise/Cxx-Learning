@@ -2,11 +2,13 @@
 **介绍**： 对于高并发服务器而言，每个连接一个线程去处理是不可能应付得了成千上万的客户请求的，为提高性能提出了许多IO复用方案！
 
 -----
+
 - [x] [1. IO操作模式](#1-io操作模式)
-- [x] [2. ](#2-)
-- [x] [3. ](#3-)
-- [x] [4. ](#4-)
-- [x] [5. ](#5-)
+- [x] [2. select 多路复用](#2-select-多路复用)
+- [x] [3. select实现socket服务器流程](#3-select实现socket服务器流程)
+- [x] [4. 设置socket为非阻塞](#4-设置socket为非阻塞)
+- [x] [5. 多线程select模式并发服务器设计](#5-多线程select模式并发服务器设计)
+
 -----
 
 ### [1. IO操作模式](#)
@@ -71,9 +73,8 @@ int setSocketNonBlocking( int fd )   //自定义函数，用于设置套接字�
 就知道数据还没有准备好，于是它可以再次发送read操作。一旦内核中的数据准备好了，并且又再次收到了用户线程的请求，那么它马上就将数据拷贝到了用户线程，然后返回。
 
 #### [1.4 同步I/O和异步I/O](#)
-同步IO：如果一个线程请求进行IO操作，在IO操作完成之前，该线程会被阻塞；
-
-异步IO：如果一个线程请求进行IO操作，IO操作不会导致请求线程被阻塞。
+* 同步IO：如果一个线程请求进行IO操作，在IO操作完成之前，该线程会被阻塞；
+* 异步IO：如果一个线程请求进行IO操作，IO操作不会导致请求线程被阻塞。
 
 **同步IO和异步IO模型是针对用户线程和内核的交互来说的：**
 * 同步IO：当用户发出IO请求操作之后，如果数据没有就绪，需要通过用户线程或者内核不断地去轮询数据是否就绪，当数据就绪时，再将数据从内核拷贝到用户线程；
@@ -125,33 +126,34 @@ struct timeval{
 int select(int nfds, fd_set *readfds, fd_set *writefds,  fd_set *exceptfds, struct timeval *timeout);
 
 //下面四个是 宏函数
-void FD_CLR(int fd, fd_set *set);//清空集合
-int  FD_ISSET(int fd, fd_set *set);//将给定的描述符加入集合
-void FD_SET(int fd, fd_set *set);//判断指定描述符是否在集合中
-void FD_ZERO(fd_set *set);//将给定的描述符从文件中删除
+void FD_CLR(int fd, fd_set *set);//将给定的描述符从文件中删除
+int  FD_ISSET(int fd, fd_set *set);//判断指定描述符是否在集合中
+void FD_SET(int fd, fd_set *set);//将给定的描述符加入集合
+void FD_ZERO(fd_set *set);//清空集合 
 ```
 **参数:**
 * int maxfd：指集合中所有文件描述符的范围，即文件描述符的最大值加1（默认最大值为1024）, 内核只需要在我们打开的最大值的描述符以内进行轮询，已减少轮询时间和系统开销。
-* readfds：需要监视的可读的描述符fd的集合，在参数1的范围内，把需要监视的描述需要提前置位（下文详解）
-* writefds：需要监视的可写的描述符fd的集合，要求同上
-* exceptfds：需要监视的异常事件的描述符fd的集合，要求同上
+* readfds `(传入传出参数)`： 需要监视的可读的描述符fd的集合，传入要监听的，返回有读事件的集合！
+* writefds `(传入传出参数)`：需要监视的可写的描述符fd的集合，传入要监听的，返回有写事件的集合！
+* exceptfds `(传入传出参数)`：需要监视的异常事件的描述符fd的集合，传入要监听的，返回有异常事件的集合！
 * timeout：
-    * timeout == NULL 
+    * timeout == NULL **阻塞**
         * 等待无限长的时间
         * 等待可以被一个信号中断,如果捕获到一个信号， select函数将返回 -1,并将变量 erro设为 EINTR。
         * 当有一个描述符做好准备或者是捕获到一个信号时函数会返回。
-    * timeout->tv_sec == 0 && timeout->tv_usec == 0 
+    * timeout->tv_sec == 0 && timeout->tv_usec == 0  **非阻塞，需要轮询**
         * 不等待，直接返回
         * 加入描述符集的描述符都会被测试，并且立即返回
         * 这种方法通过轮询，无阻塞地获得了多个文件描述符状态 
-    * timeout->tv_sec !=0 ||timeout->tv_usec!= 0
+    * timeout->tv_sec !=0 ||timeout->tv_usec!= 0 **超时等待**
         * 等待指定的时间(期间也会被信号中断)
         * 当有描述符符合条件或者超过设定的时间，函数返回
 
+<img width="750px" src="./assets/9b2bae819b0e4232961dc44cae95897c.png" />
 
 **返回值：**	
-* retval > 0 :当监视的相应的文件描述符集中满足条件时，比如说读文件描述符集中有数据到来时，内核(I/O)根据状态修改文件描述符集，并返回一个大于0的数
-* retval = 0 :当没有满足条件的文件描述符，且设置的timeval监控时间超时，select函数会返回 0
+* retval > 0 :三个集合中有事件发送，总共有多少个，比如说读文件描述符集中有数据到来时，内核(I/O)根据状态修改文件描述符集，并返回一个大于0的数
+* retval = 0 :当没有满足条件的文件描述符，且设置的timeval监控时间超时，select函数会返回 0！
 * retval < 0 :出错返回-1（信号中断等）
 
 
@@ -205,6 +207,7 @@ typedef struct
 #endif
 } fd_set;
 ```
+
 如果未定义 `__USE_XOPEN` 整理代码：
 ```cpp
 typedef struct
@@ -213,13 +216,177 @@ typedef struct
 
 } fd_set;
 ```
-**fd_set 本质上就是一个 位图，大小是64*16=1024位！**
+#### [2.3 fd_set 工作方式](#)
+**fd_set 本质上就是一个 位图，大小是64*16=1024位！**, 每个位对应一个 `socket_fd`。
+* 函数调用前传递参数: 将需要监听文件描述符加入集合，fd_set会将对应位设置为1，表示需要监听其行为。
+* 函数调用后返回的参数： 如果集合中某个文件描述符发生了事件，返回的fd_set的会将对应位设置为1，没有事件发生就是0。
 
-### [3.](#) 
+<img width="350px" src="./assets/b7f6cfabed824436a8545d1119e5816d.png" />
 
-### [4.](#)
+需要和四个宏函数相互配合使用！
+```cpp
+auto fd = Socket(AF_INET, SOCK_STREAM, 0);
+auto udp_fd = Socket(AF_INET, SOCK_DGRAM, 0);
+fd_set read_set;
 
-### [5.](#) 
+FD_ZERO(&read_set); // 蜻蛉
+FD_SET(fd, &read_set);
+
+std::cout << FD_ISSET(fd, &read_set) << std::endl; //1
+std::cout << FD_ISSET(udp_fd, &read_set) << std::endl; //0
+```
+
+### [3. select实现socket服务器流程](#) 
+实现一个基于select模式的服务器！
+
+#### [3.1 基本流程图](#)
+基本流程图如下所示：
+
+<img width="550px" src="./assets/9335280841564742812b8265b3d7dd43.png" />
+
+#### [3.2 select 简单实现](#)
+暂时未按照上面的流程图写！ 可以自定义一个数据结构，存储所有的fd!
+
+```cpp
+#include <netinet/in.h>
+#include "must.h"
+#include "socket_wrap.hpp"
+
+int initServer(unsigned short port, unsigned short max_connection){
+    auto fd = Socket(AF_INET, SOCK_STREAM,0);
+    /* 允许地址复用 */
+    int opt = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)&opt, sizeof(opt)) == -1){
+        throw std::runtime_error("set socket error！");
+    }
+    int recvBufSize = 0;
+    int len = sizeof(recvBufSize);
+    getsockopt( fd, SOL_SOCKET, SO_RCVBUF, &recvBufSize, ( socklen_t* )&len );
+    printf("默认buf大小: %d \n",recvBufSize);
+
+    sockaddr_in serverAddress{
+            AF_INET,
+            htons(port),
+            htonl(INADDR_ANY)
+    };
+    Bind(fd, (const struct sockaddr *)&serverAddress, sizeof(serverAddress));
+    Listen(fd, max_connection);
+    std::cout << "start server at 127.0.0.1 running in "<< std::to_string(port) <<":" << "\n";
+    return fd; //返回套接字
+}
+
+int main() {
+    auto listenSocketFd = initServer(15555, 20);
+    fd_set readSet, allSet;
+    FD_ZERO(&allSet);
+    auto maxSocketFd = listenSocketFd; //最大文件描述符
+
+    FD_SET(listenSocketFd, &allSet); //加入
+
+    auto readyCount = 0;
+
+    while (1){
+        readSet = allSet;
+        readyCount = select(maxSocketFd + 1, &readSet, nullptr, nullptr, nullptr);
+        //阻塞等待
+        if (readyCount < 0){
+            throw std::runtime_error("error happen in select function!"); //发生错误
+        }
+        //新连接事件
+        if (FD_ISSET(listenSocketFd, &readSet)){
+            //有新的客户端连接
+            sockaddr_in link_addr{};
+            socklen_t len = sizeof(link_addr);
+            auto newFd = Accept(listenSocketFd, (struct sockaddr *)&link_addr, &len);
+            FD_SET(newFd, &allSet); //放进去
+            std::cout << "the socket " << std::to_string(newFd) << " has been join!" << std::endl;
+            if (maxSocketFd < newFd) maxSocketFd = newFd;
+            if (readyCount == 1) continue;
+        }
+        //读事件
+        for (auto i = listenSocketFd + 1; i <= maxSocketFd ; i++) {
+            if (FD_ISSET(i, &readSet)){
+                char buffer[4096]; //缓冲区
+                auto read_count = read(i, buffer, 4096);
+                if (read_count == 0) {
+                    close(i); //关闭了
+                    FD_CLR(i, &allSet);
+                    std::cout << "the connect " << std::to_string(i) <<" has been end!" << std::endl;
+                    continue;
+                }
+                if (read_count == -1){
+                    if (errno == EINTR){
+                        i--; //被中断 重新读取
+                        continue;
+                    }
+                    throw std::runtime_error("read error!"); //发生错误
+                }
+                buffer[read_count] = '\0';
+                std::cout << "message: " << buffer << std::flush;
+            }
+        }
+    }
+    close(listenSocketFd);
+    return 0;
+}
+```
+
+#### [3.3 select 优缺点](#)
+由于select设计的时期较为早，所有优缺点有些明显， 但是毫无疑问相对于单纯的多进程线程服务器，性能已经好很多了。
+
+**缺点：**
+* 每次调用都需要重新设置fd_set
+* 单个进程可监视的fd数量被限制，select 支持监听的fd有限，监听上限受制于文件描述符，最大值为1024。
+* 底层采用轮询机制，大量连接下效率很低
+* 能监视文件描述符个数为int型，当所支持的文件描述符个数足够大时，数据会溢出。
+* 需要维护一个用来存放大量fd的数据结构，这样会使得用户空间和内核空间在传递该结构时复制开销大。 
+* 对fd进行扫描时是线性扫描。fd剧增后，IO效率较低，因为每次调用都对fd进行线性扫描遍历，所以随着fd的增加会造成遍历速度慢的性能问题 
+* select() 函数的超时参数在返回时也是未定义的，考虑到可移植性，每次在超时之后在下一次进入到select之前都需要重新设置超时参数。
+
+**优点**
+* 完全跨平台实现！
+
+### [4. 设置socket为非阻塞](#)
+在使用select以后，就可以把socket设置为非阻塞模式。当然设置有多种方式！ 由于在服务端有监听套接字和服务客户端套接字，所以
+如果要都设置为非阻塞就要分别设置！
+
+#### [4.1 通过fcntl函数](#)
+
+```cpp
+#include <fcntl.h>
+int newSocketFlag = fcntl(fd, F_GETFL, 0) | O_NONBLOCK;
+fcntl(fd,F_GETFL, newSocketFlag);
+```
+
+#### [4.2 通过socket函数](#)
+在创建的时候设置, 只需要在type参数天一个 SOCK_NONBLOCK 标志！
+
+```cpp
+auto socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+```
+
+#### [4.3 将accept函数返回的socket设置为非阻塞](#)
+linux提供了扩展函数 accept4, 参数如下所示, 给flags传递 SOCK_NONBLOCK即可！
+```cpp
+int accept4(int socket_fd, struct sockaddr *addr, socklen_t *addrlen, int flags);
+```
+
+
+### [5. 多线程select模式并发服务器设计](#) 
+首先由于select，最多只能监听1024个套接字，如果套接字的fd的大小超过1024就无法运行了，正常情况，没法设计一种多线程程序，
+一个线程负责接受连接，多个工作线程负责读写，因为连接套接字fd大小超过1024就无法将其加入监听列表了。
+因为每个工作线程都只能接受0～1024范围内的套接字，
+
+解决方法： 开多个线程，实现端口复用，每个线程都作一模一样的事情，接受连接请求，处理读写事件！
+
+#### [5.1 端口复用](#)
+默认情况下，一个 IP、端口组合只能被一个套接字绑定，Linux 内核从 3.9 版本开始引入一个新的 socket 选项 SO_REUSEPORT，又称为 port sharding，允许多个套接字监听同一个IP 和端口组合。
+
+为了充分发挥多核 CPU 的性能，多进程的处理网络请求主要有下面两种方式
+
+主进程 + 多个 worker 子进程监听相同的端口
+多进程 + REUSEPORT
+
+
 
 -----
-时间: [] 
