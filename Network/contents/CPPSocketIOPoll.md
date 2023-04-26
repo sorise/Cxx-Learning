@@ -7,7 +7,9 @@
 - [x] [2. poll 服务器](#2-poll-服务器)
 - [x] [3. epoll](#3-epoll)
 - [x] [4. linux 使用 epoll 需要的设置](#4-linux-使用-epoll-需要的设置)
-- [x] [5. epoll 系统调用](#5-epoll 系统调用)
+- [x] [5. epoll 系统调用](#5-epoll-系统调用)
+- [x] [6. epoll和poll的区别](#6-epoll和poll的区别)
+- [x] [7. epoll 服务器实现](#7-epoll-服务器实现)
 
 -----
 
@@ -301,9 +303,17 @@ struct file_operations {
 
 
 #### [3.2 总结](#)
+I/O多路复用：epoll就是一种典型的I/O多路复用技术: epoll技术的最大特点是支持高并发。
+传统多路复用技术select，poll，在并发量达到1000-2000，性能就会明显下降，epoll，从linux内核2.6引入的，2.6之前是没有的
+
+**epoll和kqueue(freebsd)技术类似：单独一台计算机支撑少则数万，多则数十上百万并发连接的核心技术。**
+
+* **epoll事件驱动机制，在单独的进程或者单独的线程里运行，收集/处理事件没有进程/线程之间切换的消耗，高效。**
 * 内部管理 fd 使用了高效的红黑树结构管理，做到了增删改之后性能的优化和平衡；
 * epoll 池添加 fd 的时候，调用 file_operations->poll ，把这个 fd 就绪之后的回调路径安排好。通过事件通知的形式，做到最高效的运行；
 * epoll 池核心的两个数据结构：红黑树和就绪列表。红黑树是为了应对用户的增删改需求，就绪列表是 fd 事件就绪之后放置的特殊地点，epoll 池只需要遍历这个就绪链表，就能给用户返回所有已经就绪的 fd 数组；
+
+
 
 #### [3.3 哪些 fd 可以用 epoll 来管理](#)
 由于并不是所有的 fd 对应的文件系统都实现了 poll 接口，所以自然并不是所有的 fd 都可以放进 epoll 池，那么有哪些文件系统的 file_operations 实现了 poll 接口？
@@ -344,5 +354,239 @@ root hard nofile 65535
 ### [5. epoll 系统调用](#) 
 epoll的系统调用只有三个，使用起来比较简单，但是原理需要了解一下。
 
+#### [5.1 epoll_create()函数](#)
+负责创建一个池子，一个监控和管理句柄 fd 的池子, 用户可以创建多个 epoll 池。 `size > 0` 参数指定这个池子的大小！
+```cpp
+#include <sys/epoll.h>
+int epoll_create(int size);
+```
+**参数:**
+* 从Linux 2.6.8开始，`size` 参数被忽略，但必须大于零；
+
+
+**返回值:**
+* 返回池子的句柄，这个epoll对象最终要用close()函数关闭，因为文件描述符/句柄 总是关闭的。
+* 如果失败，返回 `-1`， 并且设置 `errno`。
+
+底层实现：
+```cpp
+struct eventpoll *ep = (struct eventpoll*)calloc(1, sizeof(struct eventpoll)); 
+```
+
+#### [5.2 epoll_ctl()函数](#)
+把一个socket以及这个socket相关的事件添加到这个epoll对象描述符中去，目的就是通过这个epoll对象来监视这个socket上数据的来往情况；当有数据来往时，系统会通知我们 。
+
+```cpp
+#include <sys/epoll.h>
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+
+typedef union epoll_data {
+	void *ptr; /* 指向用户自定义数据 */
+	int fd;    /* 注册的文件描述符, socket fd */
+	uint32_t u32; /* 32-bit integer */
+	uint64_t u64; /* 64-bit integer */
+} epoll_data_t;
+
+struct epoll_event {
+	uint32_t events;   /* 描述epoll事件 */
+	epoll_data_t data; /* 见上面的结构体 */
+};
+```
+正常返回0, 如果失败，返回 `-1`， 并且设置 `errno`。
+
+**参数**
+* epfd是epoll_create的返回值
+* op：动作，添加/删除/修改 
+    * EPOLL_CTL_ADD：向红黑书添加一个需要监视的描述符
+    * EPOLL_CTL_DEL：从红黑书中删除一个描述符
+    * EPOLL_CTL_MOD：修改红黑书中一个描述符
+* sockid：表示客户端连接，就是你从accept()这个是红黑树里边的key;
+* event：事件信息，这里包括的是 一些事件信息
+
+```cpp
+epoll_ctl(epollFd, EPOLL_CTL_ADD, clientFd ,&temp);
+epoll_ctl(epollFd, EPOLL_CTL_DEL, epollQueue[i].data.fd, nullptr); //删除
+```
+
+常用的epoll事件描述如下：
+* **EPOLLIN**：描述符处于可读状态
+* **EPOLLOUT**：描述符处于可写状态
+* **EPOLLET**：将epoll event通知模式设置成edge triggered
+* **EPOLLONESHOT**：只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socket的话，需要再次把这个socket加入到EPOLL队列里。
+* **EPOLLHUP**：本端描述符产生一个挂断事件，默认监测事件
+* **EPOLLRDHUP**：对端描述符产生一个挂断事件
+* **EPOLLPRI**：由带外数据触发
+* **EPOLLERR**：描述符产生错误时触发，默认检测事件
+* **EPOLLEXCLUSIVE**： kernel 4.5 +支持水平触发模式的EPOLLEXCLUSIVE标志， 这个标志会保证一个事件只有一个epoll_wait()会被唤醒，避免了"惊群效应",并且可以完美的在多个ＣＰＵ之间进行扩展。
+    * POLLEXCLUSIVE可以仅在EPOLL_CTL_ADD操作中使用；尝试将其与EPOLL_CTL_MOD一起使用会产生错误
+* **EPOLLWAKEUP**：  linux提供了autosleep的电源管理功能，如果events中设置了 EPOLLWAKEUP, 还需要为autosleep创建一个唤醒源 ep_create_wakeup_source 获取被监听fd上的相关事件。
+    * 如果当前系统支持autosleep功能，支持休眠；则允许用户传入 EPOLLWAKEUP 标志；
+	* 否则，从用户传入的数据中去除掉 EPOLLWAKEUP 标志
+    * 如果events里设置了EPOLLWAKEUP
+
+#### [5.3 epoll_wait()函数](#)
+阻塞等待注册的事件发生，返回事件的数目，并将触发的事件写入events数组中。
+
+```cpp
+#include <sys/epoll.h>
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+```
+**参数:**
+* events: **是一个传出数组**, 用来记录被触发的events，返回那些满足条件的那些fd结构体！
+* maxevents: 返回的events的最大个数 1024
+* 参数timeout描述在函数调用中阻塞时间上限，单位是ms：
+    * timeout = -1 表示调用将一直阻塞，直到有文件描述符进入ready状态或者捕获到信号才返回；
+    * timeout = 0 用于非阻塞检测是否有描述符处于ready状态，不管结果怎么样，调用都立即返回；
+    * timeout > 0 表示调用将最多持续timeout时间，如果期间有检测对象变为ready状态或者捕获到信号则返回，否则直到超时。
+
+**返回值**：成功时，epoll_wait（）返回为请求的I / O准备就绪的文件描述符的数目；如果在请求的超时毫秒内没有文件描述符准备就绪，则返回零。发生错误时，epoll_wait（）返回-1并正确设置errno。
+* EBADF：epfd不是有效的文件描述符。
+* EFAULT：具有写许可权不能访问事件指向的存储区。
+* EINTR：在任何请求的事件发生或超时到期之前，信号处理程序中断了该调用；参见signal（7）。
+* EINVAL：epfd不是epoll文件描述符，或者maxevents小于或等于零。
+
+#### [5.4 LT和ET模式](#)
+和poll 的事件宏相比，epoll 新增了一个事件宏 EPOLLET，这就是所谓的边缘触发模式（Edge Trigger，ET），而默认的模式我们称为 水平触发模式（Level Trigger，LT）。这两种模式的区别在于：
+* 对于水平触发模式，一个事件只要有，就会一直触发； **适用于阻塞/非阻塞socket模式**
+* 对于边缘触发模式，只有一个事件从无到有才会触发。 **只适用于非阻塞socket模式** , 最好采用循环读的模式！
+
+```cpp
+struct epoll_event event;
+event.events = EPOLLIN | EPOLLET; //修改为边缘触发模式，默认是水平！
+
+//这种模式下就建议使用 accept4
+accept4(socket_fd, addr, addrlen, SOCK_NONBLOCK);
+
+//以下把数据读光
+while(read() >0){
+    /* ... */
+}
+```
+
+**解释**
+* 说的有点抽象，以 socket 的读事件为例，对于水平模式，**只要 socket 上有未读完的数据，就会一直产生 EPOLLIN 事件**；
+* 而对于边缘模式，socket 上每新来一次数据就会触发一次，如果上一次触发后，未将 socket 上的数据读完，也不会再触发，除非再新来一次数据。
+* 对于 socket 写事件，如果 socket 的 TCP 窗口一直不饱和，会一直触发 EPOLLOUT 事件；
+* 而对于边缘模式，只会触发一次，除非 TCP窗口由不饱和变成饱和再一次变成不饱和，才会再次触发 EPOLLOUT 事件。
+
+### [6. epoll和poll的区别](#)
+epoll的效率并不意味着一定高于poll，**一般在socket连接数量较大而活跃的连接较少的情况下，epoll模型效率更高！**
+
+* **在连接数少、且活跃度较高的时候**，使用select、poll每次能够检测出多个fd，相比起epoll频繁调用回调函数，修改就绪队列，可能性能更好。
+* 如果要在select和poll之间选择，**就看对传入fd是否有数量限制**。
+* **select和poll基于的是循环**， **epoll基于回调**
+* select，poll需自己主动不断轮询所有fd集合，直到设备就绪，期间可能要睡眠和唤醒多次交替。而epoll其实也需调用epoll_wait不断轮询就绪链表，期间也可能多次睡眠和唤醒交替，但它是设备就绪时，调用回调函数，把就绪fd放入就绪链表，并唤醒在epoll_wait中进入睡眠的进程。
+虽然都要睡眠和交替，但 **select和poll在“醒着”时要遍历整个fd集合**，**而epoll在“醒着”的时候只需判断就绪链表是否为空，节省大量CPU时间**，这就是回调机制带来的性能提升。
+#### [6.1 epoll的优缺点](#)
+**优点**：高效、使用简单，基于回调！
+* 没有最大并发连接的限制，能打开的FD的上限远大于1024（1G的内存上能监听约10万个端口）；
+* 效率提升，不是轮询的方式，不会随着FD数目的增加效率下降。只有活跃可用的FD才会调用callback函数；
+* Epoll最大的优点就在于它只管你“活跃”的连接，而跟连接总数无关，因此在实际的网络环境中，Epoll的效率就会远远高于select和poll。
+**缺点**:
+* linux 系统专属, unix系统都不支持！
+
+### [7. epoll 服务器实现](#)
+wrap.hpp和前面一样的！
+
+```cpp
+#include <iostream>
+#include "wrap.hpp"
+#include <sys/epoll.h>
+
+#define OPEN_MAX_CLIENT_CONNECTION 2048
+
+auto Epoll_ctl(int _epfd, int _op, int _fd, struct epoll_event *_event) ->
+        decltype(epoll_ctl(_epfd,_op,_fd, _event)){
+    auto v = epoll_ctl(_epfd,_op,_fd, _event);
+    if (v != 0){
+        throw std::runtime_error(std::to_string(_fd) +
+        ": error happen in Epoll_ctl ! errno: " + std::to_string(errno));
+    }
+}
+
+void createEpollServer(){
+    auto server_fd = socket_wrap::initServer(15000, 128);
+    struct epoll_event temp{EPOLLIN | EPOLLERR}, epollQueue[OPEN_MAX_CLIENT_CONNECTION];
+    struct epoll_event server_et{EPOLLIN | EPOLLERR, {.fd =  server_fd}};
+    auto epollFd = epoll_create(1);
+    if (epollFd == -1 ){
+        throw std::runtime_error("error is happen! errno: " + std::to_string(errno));
+    }
+    Epoll_ctl(epollFd, EPOLL_CTL_ADD, server_fd, &server_et);
+
+    bool running  = true;
+    while (running){
+        auto readyCount = epoll_wait(epollFd, epollQueue,
+                                     OPEN_MAX_CLIENT_CONNECTION, -1);
+        for (int i = 0; i < readyCount; ++i) {
+            //非读事件
+            if (epollQueue[i].events & EPOLLERR){
+                running = false; //有错误停止运行
+                break;
+            }
+            //有新连接
+            if (epollQueue[i].data.fd == server_fd){
+                sockaddr_in address{};
+                socklen_t len;
+                auto clientFd = socket_wrap::Accept(server_fd, (struct sockaddr *)&address, &len);
+                temp.data.fd = clientFd;
+                temp.events = EPOLLIN;
+                /* --- 受到新连接日志消息 --- */
+                char *addrIP = inet_ntoa(address.sin_addr);
+                std::cout << "new socket connection: " << clientFd << " from ip: "<< addrIP <<" port: "
+                          << ntohs(address.sin_port)  << std::endl;
+                Epoll_ctl(epollFd, EPOLL_CTL_ADD, clientFd ,&temp);
+            }
+            else{
+                char buffer[4096]; //缓冲区
+                auto read_count = recv(epollQueue[i].data.fd, buffer, 4096, 0);
+                if (read_count == 0) {
+                    std::cout << "the connect " << std::to_string(epollQueue[i].data.fd) 
+                        <<" has been end !" << std::endl;
+                    Epoll_ctl(epollFd, EPOLL_CTL_DEL, epollQueue[i].data.fd, nullptr); //删除
+                    close(epollQueue[i].data.fd); //关闭了
+                }
+                if (read_count < 0){
+                    if (errno == EINTR){
+                        i--; //被中断 重新读取
+                        continue;
+                    }
+                    //需要关闭
+                    if (errno == ECONNRESET){
+                        std::cout << "the connect " << std::to_string(epollQueue[i].data.fd) 
+                            <<" has been end !" << std::endl;
+                        Epoll_ctl(epollFd, EPOLL_CTL_DEL, epollQueue[i].data.fd, nullptr); //删除
+                        close(epollQueue[i].data.fd); //关闭了
+                    }
+                    throw std::runtime_error(std::to_string(epollQueue[i].data.fd) +
+                                             " read error - errno: " + std::to_string(errno) ); //发生错误
+                }
+
+                if (read_count > 0 ){
+                    buffer[read_count] = '\0';
+                    std::cout << "message: " << buffer << std::flush;
+                    std::string  message = "get bytes " + std::to_string(read_count) + "\n";
+                    auto write_count = write(epollQueue[i].data.fd,
+                                             message.c_str() , sizeof(char)*message.size());
+                    if (write_count <= 0){
+                        throw std::runtime_error(std::to_string(epollQueue[i].data.fd) +
+                                                 ": error happen in write ! errno: " + std::to_string(errno));
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+
+int main() {
+    createEpollServer();
+    return 0;
+}
+```
+
+### [8. 同步IO]
+select，poll，epoll本质上都是同步I/O，因为他们都需要在读写事件就绪后自己负责进行读写，也就是说这个读写过程是阻塞的，而异步I/O则无需自己负责进行读写，异步I/O的实现会负责把数据从内核拷贝到用户空间。
 
 -----
