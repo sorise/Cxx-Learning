@@ -15,11 +15,15 @@
 UDP，用户数据报协议（UDP，User Datagram Protocol），UDP是面向**无连接**协议，面向无连接的意思是只有“传送数据”的过程，提供面向事务的简单不可靠信息传送服务。
 即使是在网络拥堵的过程中，UDP也**无法进行流量控制**等避免网络拥塞，传输过程种丢包,UDP也 **不负责重发**，甚至**出现包的到达顺序乱掉的情况**也无法纠正。
 
+**优点:**  传输速度快，传输效率高，系统开销小(不需要维护连接), 没有syn泛洪攻击威胁！ 适用于对**实效性要求较高**的场景 (游戏、视频会议、online电话)！
+[可以再应用层增加数据校验协议来弥补UDP协议的不足去实现UDP的可靠传输！](#)
+
+#### [1.1 UDP Socket 模型](#)
 UDP Socket网络编程的API不多，socket()用于创建套接字，bind()用于服务端绑定端口，sendto()用于发送数据，recvfrom()用于接收数据， close()用于关闭套接字，基本流程图如下所示：
 
 <img width="400px" src="./assets/v2-86ed68e85bfd6ae86370145449c0261b_r.jpg" />
 
-#### [1.1 sendto](#)
+#### [1.2 sendto](#)
 将数据发送给socket，也就是对端服务器！
 ```cpp
 #include <sys/types.h>
@@ -39,7 +43,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 * addrlen: 表示 dest_addr 的长度;
 
 
-##### [1.2 recvfrom](#)
+##### [1.3 recvfrom](#)
 接受从其他地方受到的信息！
 
 ```cpp
@@ -91,7 +95,8 @@ void createUDPServer(){
         int recvLen = recvfrom(udp_socket_fd, recvBuf, buffer_size, 0 ,
                                (struct sockaddr*)&link_addr, &len);
         char* addr_ip = inet_ntoa(link_addr.sin_addr);
-        std::cout << "connect from " << addr_ip  << " - " << std::to_string(link_addr.sin_port) << std::endl;
+        std::cout << "connect from " << addr_ip  << " - "
+         << std::to_string(link_addr.sin_port) << std::endl;
         if (recvLen == -1){
             continue;
         }
@@ -102,7 +107,8 @@ void createUDPServer(){
             break;
         }
         std::cout << "message: " << recvBuf << std::flush;
-        std::string  message = "Get Message:" + std::to_string(recvLen) + " from "+ addr_ip + " - " + std::to_string(link_addr.sin_port) + "\n";
+        std::string  message = "Get Message:" + std::to_string(recvLen) + 
+            " from "+ addr_ip + " - " + std::to_string(link_addr.sin_port) + "\n";
         auto write_count = sendto(udp_socket_fd, message.c_str() , sizeof(char)*message.size(),
                                   0, (struct sockaddr*)&link_addr, len);
         if(write_count <= 0)
@@ -114,7 +120,6 @@ void createUDPServer(){
     std::cout << "server end!\n" << std::flush;
     close(udp_socket_fd);
 }
-
 
 int main() {
     createUDPServer();
@@ -160,7 +165,8 @@ int main(int argc, char *argv[]){
     auto count = 10;
     while (count-- > 0){
         std::string message = "count: " + std::to_string(count * 100) + "\n";
-        auto result = sendto(client_fd, message.c_str(), sizeof(char) * message.size(),0, (struct sockaddr*)&server_address, sizeof(server_address));
+        auto result = sendto(client_fd, message.c_str(), sizeof(char) * message.size(),
+             0 , (struct sockaddr*)&server_address, sizeof(server_address));
         if (result == -1){
             throw std::runtime_error("sendto error!");
         }
