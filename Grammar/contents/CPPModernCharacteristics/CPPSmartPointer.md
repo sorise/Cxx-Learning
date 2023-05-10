@@ -117,6 +117,51 @@ int *ptr = new (nothrow) int(500);
 #### [1.4 new和delete的本质](#) 
 *operator new等操作它们本质上是对c语言的 `malloc`、`calloc`、`free`的上层封装！ 底层还是最基本的c语言内存申请和释放！ 最底层没有任何特殊的设计！
 
+#### [1.5 直接使用c语言分配再使用](#)
+看代码吧！
+
+```cpp
+class user{
+private:
+    string _name;
+    int _age;
+public:
+    explicit user(string name = "", int age = 0)
+    :_name(std::move(name)), _age(age){
+        std::cout << "Call Constructor" << std::endl;
+    }
+    user(const user& other)= default;
+    user& operator=(const user& other){
+        if (this != &other){
+            this->_name = other._name;
+            this->_age = other._age;
+        }
+        return *this;
+    }
+    void print() const{
+        std::cout << "name: " << _name << ", age: " << _age << std::endl;
+    }
+    ~user(){
+        std::cout << "disappear over" << std::endl;
+    }
+};
+int main() {
+    user *names = static_cast<user*>(calloc(5, sizeof(user)));
+    if(names != nullptr){
+        names[0] = user("remix", 18);
+        names[0].print();
+
+        free(names);
+    }
+    return 0;
+}
+
+/**
+Call Constructor
+over
+name: remix, age: 18
+**/
+```
 
 ### [2. 智能指针概述](#)
 

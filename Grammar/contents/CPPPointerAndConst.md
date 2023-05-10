@@ -307,13 +307,15 @@ int main(int argc, char const *argv[])
 ```
 
 #### [1.9 函数指针](#) 
-`一个函数总是占用一段连续的内存区域，函数名在表达式中有时也会被转换为该函数所在内存区域的首地址，这和数组名非常类似。我们可以把函数的这个首地址（或称入口地址）赋予一个指针变量，使指针变量指向函数所在的内存区域，然后通过指针变量就可以找到并调用该函数。这种指针就是函数指针。`
+一个函数总是占用一段连续的内存区域，函数名在表达式中有时也会被转换为该函数所在内存区域的首地址，这和数组名非常类似。我们可以把函数的这个首地址（或称入口地址）赋予一个指针变量，
+使指针变量指向函数所在的内存区域，然后通过指针变量就可以找到并调用该函数。这种指针就是函数指针。
 
-`函数指针的定义形式为：`
-```
+函数指针的定义形式为：
+```cpp
 returnType (*pointerName)(param list);
 ```
-`returnType 为函数返回值类型，pointerNmae 为指针名称，param list 为函数参数列表。参数列表中可以同时给出参数的类型和名称，也可以只给出参数的类型，省略参数的名称，这一点和函数原型非常类似。注意( )的优先级高于*，第一个括号不能省略`
+returnType 为函数返回值类型，pointerNmae 为指针名称，param list 为函数参数列表。参数列表中可以同时给出参数的类型和名称，也可以只给出参
+数的类型，省略参数的名称，这一点和函数原型非常类似。注意( )的优先级高于*，第一个括号不能省略。
 
 ```c
 /*
@@ -353,8 +355,9 @@ int main(){
 }
 ```
 
+
 #### [1.10 C语言指针作为函数返回值](#) 
-`C语言允许函数的返回值是一个指针（地址），我们将这样的函数称为指针函数。`
+C语言允许函数的返回值是一个指针（地址），我们将这样的函数称为指针函数。
 
 ```c
 #include <string.h>
@@ -399,6 +402,43 @@ int main(){
 |`int *p();` |`p 是一个函数，它的返回值类型为 int *。`|
 |`int (*p)();` |`p 是一个函数指针，指向原型为 int func() 的函数。`|
 
+#### [1.12 用函数指针作为函数的返回值](#)
+**如果函数指针的返回还是函数指针，参数也是函数指针**, 需要学习这个写法，这个写法很不一样！
+```cpp
+void mi(int i){
+    std::cout << "mi value: " << i << std::endl;
+}
+
+
+void (*mSignal(int sigNo, void (*func)(int)))(int){
+    func(sigNo);
+    return mi;
+}
+
+auto f =  mSignal(10, [](int i){ std::cout << "value: " << i << std::endl; });
+f(1);
+
+/*
+value: 10
+mi value: 1
+*/
+```
+
+```cpp
+ int func(const int * ptr, int value){
+     return value + *ptr;
+}
+
+int (*ff(int val))(const int *, int){
+    std::cout << "give :" << val << std::endl;
+
+    return func;
+}
+
+int (*caller)(const int *, int) = ff(10);
+int val = 10;
+std::cout << "result: " << caller(&val, 20) << std::endl;
+```
 
 
 ### [2. const 修饰指针](#)

@@ -828,6 +828,10 @@ for (auto&& v : names) {
 在标头 <queue> 定义priority_queue 是容器适配器，它提供常数时间的（默认）最大元素查找，对数代价的插入与释出。可用用户提供的 Compare 更改顺序，例如，用 std::greater<T> 
 将导致最小元素作为 top() 出现。用 priority_queue 工作类似管理某些随机访问容器中的堆，优势是不可能突然把堆非法化。
 
+**less就是让前一个比后一个更小；greater就是让前一个比后一个更大。**
+
+**推荐使用自定义函数：**
+
 用 priority_queue 工作类似管理某些随机访问容器中的堆，优势是不可能突然把堆非法化。
 
 * **迭代器不支持 -- 运算符**
@@ -895,6 +899,35 @@ int main()
     return 0;
 }
 ```
+
+#### [8.2 小顶堆 自定义函数](#)
+
+```cpp
+bool minHeap(int x1, int x2){
+    return x1 > x2;
+}
+
+std::priority_queue<int, std::vector<int>, decltype(bigHeap)*> squeue(bigHeap);
+squeue.push(10);
+squeue.push(17);
+squeue.push(12);
+squeue.push(17);
+
+while (!squeue.empty()){
+    std::cout << squeue.top() << " ";
+    squeue.pop();
+}
+```
+#### [8.3 大顶堆 自定义函数](#)
+
+```cpp
+bool bigHeap(int x1, int x2){
+    return x1 < x2;
+}
+```
+
+
+
 
 ### [9. 确定使用哪种顺序容器](#)
 * 通常，使用vector时最好的选择，除非你有很好的理由选择其他容器。
