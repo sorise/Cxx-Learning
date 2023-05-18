@@ -348,6 +348,38 @@ c++11标准增加了全局函数 用于类型转换
 * string to_string (long double val);
 
 
+#### [4.3 大小写转换](#)
+
+```cpp
+#include <iostream>
+#include <string>
+#include <algorithm>
+using namespace std;
+
+
+int main(){
+    string str = "helloWORLD";
+    cout << "转换前：" << str << endl;
+    
+    //全部转换为大写
+    transform(str.begin(), str.end(), str.begin(), ::toupper);    
+    cout << "转换为大写：" << str << endl;    
+    
+    //全部转换为小写
+    transform(str.begin(), str.end(), str.begin(), ::tolower);    
+    cout << "转换为小写：" << str << endl; 
+    
+    //前五个字符转换为大写
+    transform(str.begin(), str.begin()+5, str.begin(), ::toupper);
+    cout << "前五个字符转换为大写：" << str << endl; 
+    
+    //后五个字符转换为大写
+    transform(str.begin()+5, str.end(), str.begin()+5, ::toupper);
+    cout << "前五个字符转换为大写：" << str << endl; 
+    
+    return 0;
+}
+```
 
 
 -----

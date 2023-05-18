@@ -14,7 +14,16 @@ $ # 英文文档 https://libevent.org/libevent-book/
 ```
 
 **目录:**
-* 01 libevent 入门 [**-->**](./contents/libevent001simpleuse.md)
+* 00 libevent 组件库介绍 [**-->**](./contents/libevent000Introduce.md)
+* 01 libevent 入门使用 [**-->**](./contents/libevent001SimpleUse.md)
+* 02 libevent event_base [**-->**](./contents/libevent002SettingAndBase.md)
+* 03 libevent 普通 event [**-->**](./contents/libevent003Event.md) 
+* 04 libevent bufferevent [**-->**](./contents/libevent004Bufferevent.md) 
+
+参考书籍:
+- [《Libevent深入浅出》 - `刘丹冰`](https://github.com/aceld/libevent/)
+- [《libevent源码深度剖析》 - `张亮`](https://blog.csdn.net/sparkliang/category_660506.html)
+- [《libevent参考手册》 ](./books/libevent参考手册(中文版).pdf)
 
 
 ---
