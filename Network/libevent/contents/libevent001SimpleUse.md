@@ -119,10 +119,12 @@ event_callback_fn  回调函数，事件的处理动作
 ```cpp
 int event_add(struct event *ev, const struct timeval *timeout);
 ////returh 0 if successful, or -1 if an error occurred
+
+/* timeout
+  NULL 持续等待
+  非空 等待一个时间
+/*
 ```
-* timeout
-    * NULL 持续等待
-    * 非空 等待一个时间
 
 ```cpp
 //使用例子
@@ -585,6 +587,7 @@ evconnlistener 机制提供了监听和接受 TCP 连接的方法!
 |int evconnlistener_disable(struct evconnlistener *lev)|禁用|
 |int evconnlistener_enable(struct evconnlistener *lev)|启用|
 |void evconnlistener_set_cb(struct evconnlistener *lev,evconnlistener_cb cb, void *arg)|设置链接监听器的回调函数|
+|struct event_base \* evconnlistener_get_base(struct evconnlistener \*listener)| 返回base |
 
 ### [7. client]($)
 要记住这是如何创建套接字的, `bufferevent_socket_new` 套接字参数传递 `-1` 。

@@ -19,6 +19,7 @@ $ # 英文文档 https://libevent.org/libevent-book/
 * 02 libevent event_base [**-->**](./contents/libevent002SettingAndBase.md)
 * 03 libevent 普通 event [**-->**](./contents/libevent003Event.md) 
 * 04 libevent bufferevent [**-->**](./contents/libevent004Bufferevent.md) 
+* 05 libevent bufferevent 高级用法 [**-->**](./contents/libevent005SeniorBufferevent.md)     
 
 参考书籍:
 - [《Libevent深入浅出》 - `刘丹冰`](https://github.com/aceld/libevent/)

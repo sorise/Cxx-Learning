@@ -8,6 +8,8 @@
 - [x] [3. 启动 bufferevent](#3-启动-bufferevent)
 - [x] [4. bufferevent 设置](#4-bufferevent-设置)
 - [x] [5. 操作bufferevent中的数据](#5-操作bufferevent中的数据)
+- [x] [6. evBuffer](#6-evBuffer)
+- [x] [7. 类型获取 bufferevent](#7-类型获取-bufferevent)
 
 -----
 
@@ -95,7 +97,11 @@ enum bufferevent_options {
 	BEV_OPT_UNLOCK_CALLBACKS = (1<<3)
 };
 ```
+默认情况下,bufferevent 的回调在相应的条件发生时立即被执行 。(evbuffer 的回调也是这样的,随后会介绍)在依赖关系复杂的情况下 ,这种立即调用会制造麻烦 。
 
+比如说,假如某个回调在 evbuffer A 空的时候向其中移入数据 ,而另一个回调在evbuffer A 满的时候从中取出数据。这些调用都是在栈上发生的,在依赖关系足够复杂的时候,有栈溢出的风险。
+
+要解决此问题,可以请求 bufferevent(或者 evbuffer)延迟其回调。条件满足时,延迟回调不会立即调用,而是在 event_loop()调用中被排队,然后在通常的事件回调之后执行。
 #### [2.2 在bufferevent上启动链接](#)
 address 和 addrlen 参数跟标准调用 connect()的参数相同。如果还没有为bufferevent 设置套接字,调用函数将为其分配一个新的流套接字,并且设置为非阻塞的。
 ```cpp
@@ -111,31 +117,13 @@ int bufferevent_socket_connect(
 
 如果使用 bufferevent_socket_connect() 发起连接,将只会收 到BEV_EVENT_CONNECTED 事件。如果自己调用 connect(),则连接上将被报告为写入事 件。
 
-#### [2.3 延迟回调](#)
-默认情况下,bufferevent 的回调在相应的条件发生时立即被执行 。(evbuffer 的回调也是这样的,随后会介绍)在依赖关系复杂的情况下 ,这种立即调用会制造麻烦 。
-
-比如说,假如某个回调在 evbuffer A 空的时候向其中移入数据 ,而另一个回调在evbuffer A 满的时候从中取出数据。这些调用都是在栈上发生的,在依赖关系足够复杂的时候,有栈溢出的风险。
-
-要解决此问题,可以请求 bufferevent(或者 evbuffer)延迟其回调。条件满足时,延迟回调不会立即调用,而是在 event_loop()调用中被排队,然后在通常的事件回调之后执行。
-
-
-#### [2.4 释放 bufferevent事件](#)
+#### [2.3 释放 bufferevent事件](#)
 这个函数释放 bufferevent。bufferevent 内部具有引用计数,所以,如果释放 时还有未决的延迟回调,则在回调完成之前 bufferevent 不会被删除。
 
 如果设置了 BEV_OPT_CLOSE_ON_FREE 标志,并且 bufferevent 有一个套接字或者底层 bufferevent 作为其传输端口,则释放 bufferevent 将关闭这个传输端口。
+
 ```cpp
 void bufferevent_free(struct bufferevent *bufev);
-```
-
-#### [2.5 获得回调函数和参数](#)
-尚且不知道干嘛用阿！
-
-```cpp
-void bufferevent_getcb(struct bufferevent *bufev,
-bufferevent_data_cb *readcb_ptr,
-bufferevent_data_cb *writecb_ptr,
-bufferevent_event_cb *eventcb_ptr,
-void **cbarg_ptr);
 ```
 
 ### [3. 启动 bufferevent](#) 
@@ -206,7 +194,7 @@ struct timeval val {3,0};
 bufferevent_set_timeouts(bev, &val, nullptr);
 ```
 
-#### [4.3 设置 bufferevent 优先级](#)
+#### [4.3 设置优先级](#)
 这个函数调整 bufferevent 的优先级为 pri。
 
 ```cpp
@@ -263,6 +251,24 @@ bufferevent的两个读写缓存区就是两个evbuffer对象， libevent 的 ev
 
 <img src="./assets/20180425105042967.jpeg" width="500px"  />
 
+说明：
+```cpp
+struct evbuffer_chain;
+
+struct evbuffer {  
+    struct evbuffer_chain *first;  
+    struct evbuffer_chain *last;  
+    //这是一个二级指针。使用*last_with_datap时，指向的是链表中最后一个有数据的evbuffer_chain。  
+    //所以last_with_datap存储的是倒数第二个evbuffer_chain的next成员地址。  
+    //一开始buffer->last_with_datap = &buffer->first;此时first为NULL。所以当链表没有节点时  
+    //*last_with_datap为NULL。当只有一个节点时*last_with_datap就是first。      
+    struct evbuffer_chain **last_with_datap;  
+
+    size_t total_len;//链表中所有chain的总字节数  
+
+    ...  
+}; 
+```
 
 #### [6.1 创建和释放 evbuffer](#)
 这两个函数的功能很简明: evbuffer_new() 分配和返回一个新的空 evbuffer, 而evbuffer_free()释放 evbuffer 和其内容。
@@ -288,7 +294,7 @@ evbuffer_lock()和 evbuffer_unlock()函数分别请求和释放 evbuffer 上的�
 
 > 注意:对于单个操作,不需要调用 evbuffer_lock()和evbuffer_unlock(): 如果 evbuffer启用了锁,单个操作就已经是原子的 。只有在需要多个操作连续执行 ,不让其他线程介入的时候,才需要手动锁定 evbuffer。
 
-#### [6.3 检查evbuffer](#)
+#### [6.3 检查 evbuffer](#)
 evbuffer_get_length 返回 evbuffer 存储的字节数。
 
 ```cpp
@@ -298,6 +304,7 @@ size_t evbuffer_get_length(const struct evbuffer *buf);
 
 这个函数返回连续地存储在 evbuffer 前面的字节数。evbuffer 中的数据可能存储在多个分隔
 开的内存块中，这个函数返回当前第一个块中的字节数。
+
 ```cpp
 size_t evbuffer_get_contiguous_space(const struct evbuffer *buf);
 ```
@@ -307,8 +314,12 @@ size_t evbuffer_get_contiguous_space(const struct evbuffer *buf);
 
 ```cpp
 struct evbuffer *bufferevent_get_input(struct bufferevent *bufev);
-
+//返回输入缓冲区。用户不得在此缓冲区上设置回调。
 struct evbuffer *bufferevent_get_output(struct bufferevent *bufev);
+/*
+返回输出缓冲区。用户不得在此缓冲区上设置回调。
+当使用过滤器时，如果操作了输出缓冲区，则需要手动触发过滤器。
+*/
 ```
 
 #### [6.5 buffer](#)
@@ -323,27 +334,315 @@ int bufferevent_write_buffer(struct bufferevent *bufev, struct evbuffer *buf);
 int bufferevent_read_buffer(struct bufferevent *bufev, struct evbuffer *buf);
 ```
 
-### [7. bufferevent 过滤器](#)
-bufferevent filter 过滤器可以在读取前和写入后对数据进行一系列的预处理操作，比如压缩和加密。
-对用户来讲，过滤器就像一个黑盒子，用户仍然只需要完成读取和写入，而不必知晓过滤器中的操作。
+#### [6.6 evbuffer_add*](#)
+evbuffer_add这个函数添加 data 处的 datalen 字节到 buf 的末尾，成功时返回0，失败时返回-1。
 
-#### [7.1 bufferevent_filter_new](#) 
-要使用过滤器，需要先明白 bufferevent_filter_new 函数和结构体 evbuffer 。
 ```cpp
-struct bufferevent *
-    bufferevent_filter_new(
-    struct bufferevent *underlying,
-    bufferevent_filter_cb input_filter,
-    bufferevent_filter_cb output_filter,
-    int options,
-    void (*free_context)(void *),
-    void *ctx
+/**
+ * @breif: 添加数据到 evbuffer 的结尾处
+ *
+ * @param buf: 待添加数据的 evbuffer 对象
+ * @param data: 数据指针
+ * @param datlen: 数据长度，单位 byte
+ *
+ * @return: 成功返回0，失败返回-1
+ */
+int evbuffer_add(struct evbuffer *buf, const void *data, size_t datlen);
+
+int evbuffer_add_buffer(struct evbuffer* dst, struct evbuffer * src);
+//evbuffer_add_buffer()将 src 中的所有数据移动到 dst 末尾，成功时返回0，失败时返回-1。
+
+int evbuffer_remove_buffer(	struct evbuffer* src, struct evbuffer * dst,size_t datlen);
+//evbuffer_remove_buffer()函数从 src 中移动 datlen 字节到 dst 末尾，尽量少进行复制。如
+//果字节数小于 datlen，所有字节被移动。函数返回移动的字节数。
+```
+
+#### [6.7 evbuffer_prepend*](#)
+如果想在链表的前面添加数据可以使用 evbuffer_prepend。
+
+```cpp
+int evbuffer_prepend(struct evbuffer* buf, const void * data, size_t size);
+int evbuffer_prepend_buffer(struct evbuffer* dst, struct evbuffer *src);
+```
+
+这个函数修改缓冲区的最后一块，或者添加一个新的块，使得缓冲区足以容纳datlen 字节，而不需要更多的内存分配
+```cpp
+int evbuffer_expand(struct evbuffer* buf, size_t datlen);
+```
+
+#### [6.8 格式化添加数据](#)
+evbuffer_add_printf 和 evbuffer_add_vprintf 添加格式化的数据到evbuffer的尾部 ,格式参数和其他参数的处理分别与C 库函数printf和vprintf 相同。
+```cpp
+int evbuffer_add_printf(struct evbuffer *buf, const char *fmt, ...)
+#ifdef __GNUC__
+  __attribute__((format(printf, 2, 3)))
+#endif
+;
+```
+
+```cpp
+int evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap)
+#ifdef __GNUC__
+	__attribute__((format(printf, 2, 0)))
+#endif
+;
+```
+
+```cpp
+evbuffer_add_printf(buf, "Hello %s %d.%d.%d", "world", 2, 0, 1);
+```
+
+#### [6.9 重新排列 evbuffer 的内部布局](#)
+有时候需要取出 evbuffer 前面的 N 字节，将其看作连续的字节数组。要做到这一点，首先必须确保缓冲区的前面确实是连续的。
+
+```cpp
+unsigned char *evbuffer_pullup(struct evbuffer *buf, ev_ssize_t size);
+```
+evbuffer_pullup()函数“线性化”buf 前面的 size 字节，必要时将进行复制或者移动，以保证这些字节是连续的，占据相同的内存块。
+如果 size 是负的，函数会线性化整个缓冲区。如果 size 大于缓冲区中的字节数，函数返回 NULL。否则，evbuffer_pullup()返回指向 buf 中首字节的指针。
+
+调用 evbuffer_pullup()时使用较大的 size 参数可能会非常慢，因为这可能需要复制整个缓冲区的内容。
+
+使用 evbuffer_get_contiguous_space()返回的值作为尺寸值调用 evbuffer_pullup()不会导致任何数据复制或者移动。
+
+#### [6.10 从 evbuffer 中移除数据](#)
+主要有两个函数，
+
+```cpp
+int evbuffer_drain(struct evbuffer *buf, size_t len);
+/**
+ * @brief: 从 evbuffer 的开始处读取指定长度的数据
+ *         若 evbuffer 中的数据不足指定长度，则尽可能多的读取数据
+ *
+ * @param buf: 待读取数据的 evbuffer 对象
+ * @param data: 数据指针
+ * @param datlen: 数据长度，单位 byte
+ *
+ * @return: 成功返回读取的字节数，失败返回-1
+ */
+int evbuffer_remove(struct evbuffer *buf, void *data, size_t datlen);
+```
+**evbuffer_remove** 函数从 buf 前面复制和移除 datlen 字节到 data 处的内存中。如果可用字节少于 datlen，函数复制所有字节。失败时返回-1，否则返回复制了的字节数。
+
+evbuffer_drain函数的行为与 evbuffer_remove相同,**只是它不进行数据复制**: 而只是将数据从缓冲区前面移除。成功时返回0，失败时返回-1。
+
+#### [6.11 从 evbuffer 中复制出数据](#)
+evbuffer_copyout()的行为与evbuffer_remove()相同，**但是它不从缓冲区移除任何数据。也就是说，它从 buf前面复制datlen 字节到data 处的内存中。**
+
+```cpp
+ev_ssize_t evbuffer_copyout(struct evbuffer* buf, void * data, size_t datlen);
+ev_ssize_t evbuffer_copyout_from(
+    struct evbuffer* buf,
+	const struct evbuffer_ptr* pos,
+	void* data_out, size_t datlen
 );
 ```
 
-### [X. 类型获取 bufferevent](#)
+#### [6.12 evbuffer_readln](#)
+evbuffer_readln()函数从evbuffer前面取出一行，用一个新分配的空字符结束的字符串返回这一行。
 
-#### [X.X 获取与设置](#)
+如果n_read_out不是NULL，则它被设置为返回的字符串的字节数, 如果没有整行供读取，函数返回空，返回的字符串不包括行结束符。
+
+**如果**
+```cpp
+char* evbuffer_readln(
+    struct evbuffer * buffer, 
+    size_t * n_read_out,
+    enum evbuffer_eol_style eol_style
+);
+            
+enum evbuffer_eol_style 
+{
+    EVBUFFER_EOL_ANY,
+    EVBUFFER_EOL_CRLF,
+    EVBUFFER_EOL_CRLF_STRICT,
+    EVBUFFER_EOL_LF,
+    EVBUFFER_EOL_NUL
+};
+```
+
+evbuffer_readln()理解的4种行结束格式：
+
+|参数|说明|
+|:----|:----|
+|EVBUFFER_EOL_LF|行尾是单个换行符(也就是\n，ASCII值是0x0A)|
+|EVBUFFER_EOL_CRLF_STRICT|行尾是一个回车符，后随一个换行符(也就是\r\n，ASCII值是0x0D 0x0A)|
+|EVBUFFER_EOL_CRLF|	行尾是一个可选的回车，后随一个换行符(也就是说，可以是\r\n或者\n) 。这种格式对于解析基于文本的互联网协议很有用，因为标准通常要求\r\n的行结束符，而不遵循标准的客户端有时候只使用\n。|
+|EVBUFFER_EOL_ANY |	行尾是任意数量、任意次序的回车和换行符。这种格式不是特别有用。它的存在主要是为了向后兼容|
+
+
+#### [6.13 evbuffer_peek](#)
+函数可以在不删除或复制evbuffer的情况下查看evbuffer内部的数据。通过在“vec_out”数组中填充指向缓冲区内一个或多个数据区的指针，可以返回指向数据的指针。
+
+```cpp
+/*
+* @buffer：  要窥视的evbuffer，
+* @len：  尝试窥探的字节数。如果len为负数，我们将尽可能多地填充vec_out。如果len为
+          负数，并且没有提供vec_out，我们将返回获取缓冲区中所有数据所需的evbuffer_iovec的数量。
+* @start_at：  一个evbuffer_ptr，指示我们应该开始查找数据的点。NULL表示“在缓冲区的开头。”
+* @vec_out： evbuffer_iovec的数组
+* @n_vec ：vec_out的长度。如果为0，我们只计算需要多少扩展数据块才能指向请求的数据量。
+*/
+
+int evbuffer_peek(
+    struct evbuffer *buffer, 
+    ev_ssize_t len,
+    struct evbuffer_ptr *start_at,
+    struct evbuffer_iovec *vec_out, int n_vec
+);
+```
+调用 evbuffer_peek()的时候,通过vec_out 给定一个evbuffer_iovec 数组,数组的长度是n_vec.函数会让每个结构体包含指向evbuffer 内部内存块的指针(iov_base)和块中数据长度.
+
+如果 len小于0,evbuffer_peek()会试图填充所有evbuffer_iovec 结构体。 否则,函数会进行填充,直到使用了所有结构体,或者见到len 字节为止。
+如果函数可以给出所有请求的数据,则返回实际使用的结构体个数;否则,函数返回给出所有请求数据所需的结构体个数。
+
+如果 ptr为 NULL,函数从缓冲区开始处进行搜索.否则,从ptr 处开始搜索。
+
+#### [6.14 在evbuffer中搜索内容](#)
+evbuffer_ptr结构体指示evbuffer中的一个位置，包含可用于在evbuffer中迭代的数据。
+
+结构体e vbuffer_ptr 中的 pos 为偏移量，如果为 -1 则没查询到，大于 -1 则搜索到了匹配的复制。
+```cpp
+struct evbuffer_ptr 
+{
+	ev_ssize_t pos;
+	struct 
+	{
+		/* internal fields*/
+	} _internal;
+};
+```
+
+evbuffer_search()函数在缓冲区中查找含有len个字符的字符串what。
+
+函数返回包含字符串位置，或者在没有找到字符串时包含 `-1` 的evbuffer_ptr结构体。
+
+如果提供了start 参数，则从指定的位置开始搜索；否则，从开始处进行搜索。
+
+**evbuffer_search_range()** 函数和 **evbuffer_search** 行为相同，只是它只考虑在end之前出现的what。
+
+**evbuffer_search_eol()** 函数像 **evbuffer_readln()** 一样检测行结束，但是不复制行，而是返回指向行结束符的 evbuffer_ptr，如果 eol_len_out 非空，则它被设置为EOL字符串长度。
+
+```cpp
+struct evbuffer_ptr evbuffer_search(struct evbuffer* buffer,
+    const char* what, 
+    size_t len, 
+    const struct evbuffer_ptr * start
+);
+struct evbuffer_ptr evbuffer_search_range(struct evbuffer* buffer,
+    const char* what, size_t len, 
+    const struct evbuffer_ptr * start,
+    const struct evbuffer_ptr* end
+);
+struct evbuffer_ptr evbuffer_search_eol(struct evbuffer* buffer,
+    struct evbuffer_ptr* start, 
+    size_t * eol_len_out,
+    enum evbuffer_eol_style eol_style
+);
+```
+
+**evbuffer_ptr_set** 函数操作 buffer中的位置pos， 成功时函数返回0，失败时返回 -1 。
+```cpp
+enum evbuffer_ptr_how 
+{
+	EVBUFFER_PTR_SET, //指针被移动到缓冲区中的绝对位置position
+	EVBUFFER_PTR_ADD  //向前移动position字节  
+};
+
+int evbuffer_ptr_set(	struct evbuffer* buffer, 
+    struct evbuffer_ptr * pos,
+    size_t position, 
+    enum evbuffer_ptr_how how
+);
+```
+
+#### [6.15 evbuffer_reserve_space](#)
+时候需要能够直接向evbuffer添加数据，而不用先将数据写入到字符数组中，然后再使用evbuffer_add()进行复制。有一对高级函数可以完成
+这种功能：evbuffer_reserve_space()和evbuffer_commit_space()。跟evbuffer_peek()一样，这两个函数使用evbuffer_iovec结构体来提供对evbuffer内部内存的直接访问。
+
+```cpp
+struct evbuffer_iovec 
+{
+	void* iov_base;
+	size_t iov_len;
+
+};
+int evbuffer_reserve_space(
+    struct evbuffer *buf, 
+    ev_ssize_t size,
+    struct evbuffer_iovec *vec, 
+    int n_vec
+);
+
+int evbuffer_commit_space(
+    struct evbuffer *buf,
+    struct evbuffer_iovec *vec, 
+    int n_vecs
+);
+```
+
+
+#### [6.16 读写小例子](#)
+
+```cpp
+struct evbuffer *buffer = evbuffer_new();
+
+evbuffer_enable_locking(buffer, nullptr);
+
+const char *block_01 = {"122222222222222222222222222\r\n"};
+const char *block_02 = {"333333333333333333333333335\r\n"};
+
+evbuffer_add(buffer,block_01, sizeof(char)* strlen(block_01));
+evbuffer_add(buffer,block_02, sizeof(char)* strlen(block_01));
+
+size_t len;
+char *first_line = evbuffer_readln(buffer,&len, EVBUFFER_EOL_CRLF);
+//122222222222222222222222222
+char *second_line = evbuffer_readln(buffer,&len, EVBUFFER_EOL_CRLF);
+//333333333333333333333333335
+
+std::cout <<"first_line: " <<first_line << std::endl;
+std::cout <<"second_line: " <<second_line << std::endl;
+
+free(first_line);
+free(second_line);
+
+evbuffer_free(buffer);
+```
+
+
+### [7. 类型获取 bufferevent](#)
+获取bufferevent相关的属性！
+
+#### [7.1 获得回调函数和参数](#)
+尚且不知道干嘛用阿！
+
+```cpp
+void bufferevent_getcb(
+    struct bufferevent *bufev,
+    bufferevent_data_cb *readcb_ptr,
+    bufferevent_data_cb *writecb_ptr,
+    bufferevent_event_cb *eventcb_ptr,
+    void **cbarg_ptr
+);
+```
+
+#### [7.2 bufferevent_get_underlying](#)
+返回作为底层传输的另一个bufferevent，当然只适用于filtering bufferevents。
+
+```cpp
+struct bufferevent *bufferevent_get_underlying(struct bufferevent *bufev);
+```
+
+#### [7.3 加锁](#)
+有时候需要确保对 bufferevent 的一些操作是原子地执行的。为此， libevent 提供了手动锁定和解锁 bufferevent 的函数。
+
+```cpp
+void bufferevent_lock(struct bufferevent *bufev);
+void bufferevent_unlock(struct bufferevent *bufev);
+```
+
+#### [7.4 fd 获取与设置](#)
 这些函数设置或者返回基于 fd 的事件的文件描述符。只有基于套接字的 bufferevent 支持 setfd()。两个函数都在失败时返回-1；setfd()成功时返回0。
 
 ```cpp
@@ -352,18 +651,10 @@ int bufferevent_setfd(struct bufferevent *bufev, evutil_socket_t fd);
 evutil_socket_t bufferevent_getfd(struct bufferevent *bufev);
 ```
 
-### [X.2 bufferevent_get_underlying](#)
-返回作为底层传输的另一个bufferevent，当然只适用于filtering bufferevents。
+#### [7.5 获取 event_base](#)
+这个函数返回 bufferevent 的 event_base。
 
 ```cpp
-struct bufferevent *bufferevent_get_underlying(struct bufferevent *bufev);
-```
-
-### [X.3 加锁](#)
-有时候需要确保对 bufferevent 的一些操作是原子地执行的。为此， libevent 提供了手动锁定和解锁 bufferevent 的函数。
-
-```cpp
-void bufferevent_lock(struct bufferevent *bufev);
-void bufferevent_unlock(struct bufferevent *bufev);
+struct event_base *bufferevent_get_base(struct bufferevent *bev);
 ```
 
