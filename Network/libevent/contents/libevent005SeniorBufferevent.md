@@ -3,8 +3,8 @@
 
 -----
 - [x] [1. bufferevent 过滤器](#1-bufferevent-过滤器)
-- [x] [2. ](#2-)
-- [x] [3. ](#3-)
+- [x] [2. evbuffer](#2-evbuffer)
+- [x] [3. 例子](#3-例子)
 - [x] [4. ](#4-)
 - [x] [5. ](#5-)
 -----
@@ -52,6 +52,15 @@ typedef enum bufferevent_filter_result (*bufferevent_filter_cb)(
     enum bufferevent_flush_mode mode, 
     void *ctx
 );
+
+enum bufferevent_flush_mode {
+	/** usually set when processing data */
+	BEV_NORMAL = 0,
+	/** want to checkpoint all data sent. */
+	BEV_FLUSH = 1,
+	/** encountered EOF on read or done sending data */
+	BEV_FINISHED = 2
+};
 
 // filter 回调函数返回值
 enum bufferevent_filter_result {
@@ -406,7 +415,7 @@ int main(int argc,char *argv[])
 
 ```
 
-#### [3.1 自己写的例子](#)
+#### [3.1 bufferevent server](#)
 
 ```cpp
 #include <csignal>
@@ -625,7 +634,117 @@ bufferevent_filter_result filter_out(evbuffer *s,evbuffer *d,
 }
 ```
 
-### [3.](#) 
+#### [3.2 bufferevent client](#) 
+
+```cpp
+//
+// Created by remix on 23-5-11.
+//
+#include <iostream>
+#include "net/wrap.hpp"
+#include <event.h>
+#include <event2/event.h>
+#include <event2/listener.h>
+#include <event2/buffer.h>
+#include <zlib.h>
+
+bufferevent_filter_result filter_in(evbuffer *s,evbuffer *d, 
+        ev_ssize_t limit,bufferevent_flush_mode mode,void *arg){
+    //源数据再 s:
+    auto byte_sizes= evbuffer_get_length(s);
+    std::cout << "byte sizes: " << byte_sizes << std::endl;
+
+    evbuffer_add_buffer(d, s);
+    return BEV_OK;
+}
+
+bufferevent_filter_result filter_out(evbuffer *s,evbuffer *d,
+        ev_ssize_t limit,bufferevent_flush_mode mode,void *arg){
+    evbuffer_add_buffer(d, s);
+    return BEV_OK;
+}
+
+void read_callback(struct bufferevent *bev, void *user_data){
+    char msg[1024];
+    auto len = bufferevent_read(bev, msg, 1023);
+    if (len < 1023){
+        msg[len] = '\0';
+    }
+    std::cout <<"from server: " << msg << std::endl;
+    bufferevent_free(bev);
+};
+
+void write_callback(struct bufferevent *bev, void *user_data){
+    struct evbuffer *output = bufferevent_get_output(bev);
+    if (evbuffer_get_length(output) == 0) {
+
+    }
+}
+
+//其他事件
+void event_callback(struct bufferevent *bev, short events, void *ctx){
+    if (events & BEV_EVENT_EOF) {
+        std::cout << "eof closed.\n";
+        bufferevent_free(bev);
+    } else if (events & BEV_EVENT_ERROR) {
+
+        std::cout <<"Got an error on the connection: " <<
+           bufferevent_getfd(bev) << " errno: " << errno << std::endl;
+
+        bufferevent_free(bev);
+    }else if (events & EV_CLOSED){
+        std::cout << "Connection closed.\n";
+        bufferevent_free(bev);
+    }else{
+        bufferevent_free(bev);
+    }
+}
+
+//其他事件
+void event_callback_cont(struct bufferevent *bev, short events, void *ctx){
+    if (events & BEV_EVENT_CONNECTED){
+        std::cout << "Connect to server successfully.\n";
+        auto bev_filter = bufferevent_filter_new(bev,
+                                                 filter_in, filter_out,
+                                                 BEV_OPT_CLOSE_ON_FREE,
+                                                 nullptr,nullptr);
+
+        bufferevent_setcb(bev_filter,read_callback, write_callback, event_callback, nullptr);
+        bufferevent_enable(bev_filter, EV_READ|EV_WRITE|EV_CLOSED);
+
+        bufferevent_write(bev_filter, "temp.data", 10);
+    }else{
+        std::cout << "time out.\n";
+        bufferevent_free(bev);
+    }
+}
+
+
+int main(int argc, char *argv[]) {
+    struct event_base *base = event_base_new();
+
+    auto bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
+
+    sockaddr_in serverAddress{
+            AF_INET,
+            htons(15000)
+    };
+
+    inet_aton("127.0.0.1",&serverAddress.sin_addr);
+
+    bufferevent_socket_connect(bev, (const struct sockaddr*)&serverAddress, sizeof(serverAddress));
+
+    bufferevent_setcb(bev, nullptr, nullptr,event_callback_cont, nullptr);
+    bufferevent_enable(bev, BEV_EVENT_CONNECTED);
+    struct timeval timeout {4,0};
+    bufferevent_set_timeouts(bev,&timeout , nullptr);
+
+    event_base_dispatch(base);
+
+    event_base_free(base);
+    return 0;
+}
+```
 
 ### [4. 套接字设置](#)
 

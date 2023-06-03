@@ -87,21 +87,25 @@ C++基本类型包括，整形 整形有 char short int long 和 long long。还
 
 C++ 为了应对不同计算机设计的需要，提供了一种灵活的标准，它确保了最小的长度，并不固定不同整形一定要具有的大小，例如int 它不一定是 32位的，它可以是16位的，甚至是64位的。C++标准只确保了 int 至少是和short一样长，short至少是16位的!` `而且你还必须要考虑到有符号和无符号的区别！
 
-|`类型`|`标准大小`|`说明`|
+|类型|标准大小|说明|
 |:----|:---|:---|
-|`bool`|`1位[bit] 1bit`|`true 非零值 / false 零值`|
-|`char`|`8位[bit] 1字节`|`常用来表示字符 CHAR_BIT 返回位数，CHAR_MAX char的最大值。CHAR_MIN char的最小值！  `|
-|`short`|`至少16位[bit] 2字节`|`SHORT_MAX SHORT_MIN USHORT_MAX（unsigned short 的最大值） `|
-|`int`|`至少和short 一样长`|`INT_MAX INT_MIN UINT_MAX 意义和上面一样`|
-|`long`|`至少32位[bit] 4字节 且至少和int一样长`|`LONG_MIN LONG_MAX ULONG_MAX ...`|
-|`long long`|`至少64位，且至少和long一样长`|`LLONG_MAX LLONG_MIN ULLONG_MAX ...`|
-|`unsigned 整形类型`|`和整形类型一样`|`声明无符号整数例如 unsigned int 无符号整形 只能表示 >= 0的整数`|
+|bool|1位[bit] 1bit|true 非零值 / false 零值|
+|char|8位[bit] 1字节|常用来表示字符 CHAR_BIT 返回位数，CHAR_MAX char的最大值。CHAR_MIN char的最小值！  |
+|short|至少16位[bit] 2字节|SHORT_MAX SHORT_MIN USHORT_MAX（unsigned short 的最大值） |
+|int|至少和short 一样长|INT_MAX INT_MIN UINT_MAX 意义和上面一样|
+|long|至少32位[bit] 4字节 且至少和int一样长|LONG_MIN LONG_MAX ULONG_MAX ...|
+|long long|至少64位，且至少和long一样长|LLONG_MAX LLONG_MIN ULLONG_MAX ...|
+|unsigned 整形类型|和整形类型一样|声明无符号整数例如 unsigned int 无符号整形 只能表示 >= 0的整数|
 
-`int 很奇特啊。他可以是16位，24位，32位，在不同的系统中有所不同。在小内存系统例如IBM PC中就是16，在win7,win10就是32位。 有些系统还允许选择如何处理int的宽度随实现而异。` 
-`实际上 short是 short int的简称。而long是 long int的简称。`  `如果要知道系统中整数的最大长度。可以在程序中使用C++工具来检查类型的长度。 ` `sizeof 运算符` 
-`返回类型和变量的长度。单位是字节。` `字节这玩意儿挺奇特的，一般来说是八位一字节。但是有些实现，有16位甚至是32位的字节。`
+int 很奇特啊。他可以是16位，24位，32位，在不同的系统中有所不同，在小内存系统例如IBM PC中就是16，在win7,win10就是32位。 
 
-`你完全可以通过` `sizeof`  `与最大值 相结合去判断整形的宽度。` `sizeof 不是函数哦，他是一个运算符。类型名称要放到括号中 sizeof(int), 但是变量可以加括号也可以不加`
+有些系统还允许选择如何处理int的宽度随实现而异, 实际上 short是 short int的简称。
+
+而long是 long int的简称， 如果要知道系统中整数的最大长度，可以在程序中使用C++工具来检查类型的长度, sizeof 运算符返回类型和变量的长度。
+
+单位是字节。 字节这玩意儿挺奇特的，一般来说是八位一字节。但是有些实现，有16位甚至是32位的字节。
+
+你完全可以通过 sizeof  与最大值 相结合去判断整形的宽度。 sizeof 不是函数哦，他是一个运算符，类型名称要放到括号中 sizeof(int), 但是变量可以加括号也可以不加。
 
 ```cpp
 int year = 18;

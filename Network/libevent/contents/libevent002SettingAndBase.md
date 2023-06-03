@@ -174,6 +174,28 @@ int event_base_priority_init(struct event_base *base, int n_priorities);
 
 **必须在任何事件激活之前调用这个函数,最好在创建 event_base 后立刻调用。**
 
+#### [2.1 配置例子](#)
+
+```cpp
+struct event_base* ConfigBase(){
+    struct event_base * base = nullptr;
+    struct event_config * config = event_config_new();
+
+    //features、 flag
+    event_config_require_features(config, EV_FEATURE_ET);
+    event_config_set_flag(config,  EVENT_BASE_FLAG_NOLOCK);
+
+    //创建 event_base
+    base = event_base_new_with_config(config);
+
+    //优先级
+    event_base_priority_init(base, 128);
+
+    //释放配置对象
+    event_config_free(config);
+    return base;
+}
+```
 
 ### [3. 工具函数](#)
 libevent提供了很多工具函数，如果你自己创建 socket而不是使用evconnlistener的话，这些api还是很有用的！

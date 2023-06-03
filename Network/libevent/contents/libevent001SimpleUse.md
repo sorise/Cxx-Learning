@@ -578,7 +578,18 @@ struct evconnlistener *evconnlistener_new(struct event_base *base,
     evutil_socket_t fd);
 ```
 
-#### [6.3 其他API 函数](#)
+#### [6.3 evconnlistener_set_error_cb](#)
+可以设置一个一旦监听器上的 accept()调用失败就被调用的错误回调函数。对于一个不解决
+就会锁定进程的错误条件，这很重要。
+```cpp
+void evconnlistener_set_error_cb(struct evconnlistener *lev,
+    evconnlistener_errorcb errorcb);
+```
+如果使用 evconnlistener_set_error_cb()为监听器设置了错误回调函数，则监听器发生错误
+时回调函数就会被调用。第一个参数是监听器，第二个参数是调用 evconnlistener_new()
+时传入的 ptr。
+
+#### [6.4 其他API 函数](#)
 evconnlistener 机制提供了监听和接受 TCP 连接的方法!
 
 |函数 API| 说明 |

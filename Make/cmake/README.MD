@@ -1,13 +1,24 @@
 ### [CMake Tool](https://cmake.org/)
-**介绍**： CMake是一个开源、跨平台的编译、测试和打包工具，它使用比较简单的语言描述编译、安装的过程，输出**Makefile** 或者 **project** 文件，再去执行构建。
+**介绍**： CMake是一个开源、跨平台的编译配置工具、支持单元测试和项目打包、安装。 它使用比较简单的语言描述编译、测试、安装部署的过程，支持持续集成, 语法简洁清晰，并且功能强大灵活，不仅可以用于C/C++项目，还支持Fortran、Java、Python等多种编程语言的构建。
 
-**GCC（GNU Compiler Collection）**将源文件**编译（Compile）** 成可执行文件或者库文件， 而当需要编译的东西很多时，需要说明先编译什么，后编译什么，这个过程称为构建 **（Build）**。
-常用的工具是 **make**，对应的定义构建过程的文件为 **Makefile**，而编写 **Makefile** 对于大型项目又比较复杂，通过 **CMake** 就可以使用更加简洁的语法定义构建的流程，
-**CMake**定义构建过程的文件为 **CMakeLists.txt**。
+----
 
-**1. 基本常识**
+**目录**：
+CMake本身也具有很多的内容所以对CMake学习的学习也应该分阶段进行，逐步掌握，在有一个大概的了解，和对CMake内容有一定的掌握后就可以进行字典化学习，需要什么就查询相应的内容就可以了。
 
-0. [CMake 初体验](./contents/CMakeStarting.md)
+一. 基础使用 - 能够构建一个小项目：**库、测试、安装**
+
+- **01.** CMake 体系结构与工作原理 [->](./contents/BasicStage/CMakeBasicknowledge.md)
+- **02.** CMake 静态库和动态库 [->](./contents/BasicStage/CMakeStaticAndDynamicLibrary.md)
+- **03.** CMake 认识变量 [->](./contents/BasicStage/CMakeBasicknowledge.md)
+
+
+
+
+
+
+X. 知识清单查询
+
 1. [CMake 简单使用](./contents/CMakeUsingSImple.md)
 2. [CMake 变量](./contents/CMakeVariables.md)
 3. [CMake 内置变量](./contents/CMakeInternalVariable.md)
@@ -15,19 +26,6 @@
 5. [CMake 结构化指令](./contents/CMakeStructuredInstruction.md)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-----
 
 #### 参考网站
 
