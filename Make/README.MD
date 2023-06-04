@@ -3,9 +3,9 @@
 
 ----
 
-- 1. CMake [**-->**](./cmake)
+* CMake [**-->**](./cmake)
 
-- 2. XMake [**-->**](./xmake)
+* XMake [**-->**](./xmake)
 
 
 **基本知识：**

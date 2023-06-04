@@ -5,9 +5,6 @@
 
 - [x] [1. UDP 通信](#1-upd-通信)
 - [x] [2. UDP Server实现](#2-udp-server实现)
-- [x] [3. ](#3-)
-- [x] [4. ](#4-)
-- [x] [5. ](#5-)
 
 -----
 
@@ -37,14 +34,14 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 参数：
 * sockfd: 正在监听端口的套接口实例;
 * buf：要发送的数组;
-* len: 要发送的数组的字节大小;
+* len: 要发送的数组的字节大小; **由于以太网帧1500 - IP头部20 - UDP首部8 = 1472， 所以len不能超过1472,推荐1400**。
 * flags: 填0即可;
 * dest_addr: 指定数据要发送到哪个主机，哪个端口;
 * addrlen: 表示 dest_addr 的长度;
 
 
 ##### [1.3 recvfrom](#)
-接受从其他地方受到的信息！
+接受从其他地方受到的信息，一次 recvform 只收一个报文。 如果用户传过来三个报文，recvform就需要调用三次。**谨记！**
 
 ```cpp
 #include <sys/types.h>
@@ -56,7 +53,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 参数：
 * sockfd: 正在监听端口的套接口实例;
 * buf: 要接收的数组;
-* len: 要接收的数组的字节大小;
+* len: 要接收的数组的字节大小;  **由于以太网帧1500 - IP头部20 - UDP首部8 = 1472， 所以len不能超过1472,推荐1400**。
 * flags: 填0即可;   
     * MSG_DONTWAIT 启用非阻塞操作；如果操作将被阻止，则调用将失败，并返回错误EAGAIN或EWOULDBLOCK。
 * src_addr: 获取接收的数据是从哪个主机地址发来的;
@@ -185,20 +182,5 @@ int main(int argc, char *argv[]){
     close(client_fd);
     return 0;
 }
-
 ```
 
-|方法|返回值|参数个数|说明|
-|:---|:---|:---|:----|
-|||||
-|||||
-|||||
-
-### [3.](#) 
-
-### [4.](#) 
-
-### [5.](#) 
-
------
-时间: [] 

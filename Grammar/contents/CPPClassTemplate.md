@@ -635,20 +635,27 @@ tk:是参数，要求tk必须是一个模板类！ tk 是一个模板类，不�
 ```cpp
 //创建一个双栈类
 template< template <typename T> class tk, typename U>
-class StackDouble;
+class StackDouble
 {
 private:
-    tk<U> stack_i;
-    tk<U> stack_dl;
+    tk<U> stack_first;
+    tk<U> stack_second;
 public:
-    /* ... */
-}
+    StackDouble()= default;
+    tk<U>& getFirstStack() { return this->stack_first;};
+    tk<U>& getSecondStack() { return this->stack_second;};
+};
 ```
 使用模板类型参数
 ```cpp
-StackDouble<std::stack, int> stkdl;
+StackDouble<std::stack, int> dl;
 
-StackDouble<Stack, double> stkdl; //或者用我们自己的模板类
+dl.getFirstStack().push(25);
+dl.getFirstStack().push(28);
+
+dl.getSecondStack().push(21);
+
+StackDouble<Stack, double> stkdl; //或者用我们自己的模板类 Stack
 ```
 
 理解以下这种情况, 非常有意思！ 将未实例化的模板类作为模板参数！

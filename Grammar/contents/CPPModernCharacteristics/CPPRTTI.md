@@ -1,9 +1,9 @@
 ### [C++ RTTI 运行阶段类型识别 和 cast类型转换](#)
-`Runtime Type Identification 运行阶段类型识别`
+Runtime Type Identification 运行阶段类型识别
 
 -----
-- [x] [`1. RTTI的用途`](#1-rtti的用途)
-- [x] [`2. 类型转换运算符`](#2-类型转换运算符)
+- [x] [1. RTTI的用途](#1-rtti的用途)
+- [x] [2. 类型转换运算符](#2-类型转换运算符)
 
 -----
 
@@ -19,23 +19,34 @@ RTTI是运行阶段类型识别（Runtime Type Identification）的简称。这�
 也可能是出于调试目的，想跟踪生成的对象的类型。
 
 #### [1.1 RTTI的工作原理](#)
-`C++有3个支持RTTI的元素：`
+C++有3个支持RTTI的元素：
 
-* `如果可能的话，dynamic_cast运算符将使用一个指向基类的指针来生成一个指向派生类的指针；否则，该运算符返回0（空指针）；`
-* `typeid运算符返回一个指出对象的类型的值；`
-* `type_info结构存储了有关特定类型的信息。`
+* 如果可能的话，dynamic_cast运算符将使用一个指向基类的指针来生成一个指向派生类的指针；否则，该运算符返回0（空指针）；
+* **typeid** 运算符返回一个指出对象的类型的值；
+* **type_info**结构存储了有关特定类型的信息。
 
 > 注意️：️RTTI只适用于包含虚函数的类。因为只有对于这种类层次结构，才应该将派生类的地址赋给基类指针。
 
+```cpp
+int age = 27;
+int *ptr = &age;
+
+muse::BinarySerializer serializer;
+
+std::cout <<  typeid(age).name() << std::endl; //i
+std::cout <<  typeid(ptr).name() << std::endl; //Pi
+std::cout <<  typeid(serializer).name() << std::endl; //N4muse16BinarySerializerE
+```
+
 
 #### [1.2 dynamic_cast](#)
-`这是最常用的RTTI组件，它不能回答“指针指向的是哪类对象”这样的问题，但能够回答“是否可以安全地将对象的地址赋给特定类型的指针”这样的问题。 否则，结果为0，即空指针。`
+这是最常用的RTTI组件，它不能回答“指针指向的是哪类对象”这样的问题，但能够回答“是否可以安全地将对象的地址赋给特定类型的指针”这样的问题。 否则，结果为0，即空指针。
 **说白了，就是看看这个对象指针能不能转换为目标指针。**
 
 **dynamic_cast是将一个基类对象指针（或引用）转换到继承类指针，dynamic_cast会根据基类指针是否真正指向继承类指针来做相应处理。**
 
 **至于“先上转型”（即派生类指针或引用类型转换为其基类类型），本身就是安全的，尽管可以使用dynamic_cast进行转换，但这是没必要的， 普通的转换已经可以达到目的，毕竟使用dynamic_cast是需要开销的。**
-`三个父子类`
+三个父子类
 ```cpp
 class Grand
 {
@@ -70,7 +81,7 @@ public:
 };
 
 ```
-`使用方法：`
+使用方法：
 ```cpp
 int main(int argc, char const* argv[])
 {   
@@ -90,8 +101,8 @@ int main(int argc, char const* argv[])
 }
 ```
 
-`也可以将dynamic_cast用于引用，用法稍微有点不同：`
-`没有与空指针对应的引用值，因此无法使用特殊的引用值来指示失败。当请求不正确时，dynamic_cast将引发类型为bad_cast的异常，这种异常是从exception类派生而来的，它是在头文件typeinfo中定义的。`
+也可以将dynamic_cast用于引用，用法稍微有点不同：
+没有与空指针对应的引用值，因此无法使用特殊的引用值来指示失败。当请求不正确时，dynamic_cast将引发类型为bad_cast的异常，这种异常是从exception类派生而来的，它是在头文件typeinfo中定义的。
 ```cpp
 #include <typeinfo> // for bad_cast
 /*...*/
@@ -104,10 +115,10 @@ catch(bad_cast &){
 };
 ```
 
-`尽量少使用转型操作，尤其是dynamic_cast，耗时较高，会导致性能的下降，尽量使用其他方法替代。`
+尽量少使用转型操作，尤其是dynamic_cast，耗时较高，会导致性能的下降，尽量使用其他方法替代。
 
 #### [1.3 typeid 运算符](#)
-`typeid` `运算符能够用于确定两个对象是否为同种类型`。`它与` `sizeof` `有些想象`，`可以接受两种参数`
+typeid 运算符能够用于确定两个对象是否为同种类型。它与 sizeof 有些想象，可以接受两种参数
 
 * **类名**
 * **结果为对象的表达式。**
@@ -116,9 +127,9 @@ catch(bad_cast &){
 // 判断pg指向的是否是ClassName类的对象
 typeid(ClassName) == typeid(*pg)
 ```
-`如果pg是一个空指针，程序将引发bad_typeid异常，该异常是从exception类派生而来的，它是在头文件typeinfo中声明的。`
+如果pg是一个空指针，程序将引发bad_typeid异常，该异常是从exception类派生而来的，它是在头文件typeinfo中声明的。
 
-`type_info类的实现随厂商而异，但包含一个name()成员，该函数返回一个随实现而异的字符串，通常（但并非一定）是类的名称。可以这样显示：`
+type_info类的实现随厂商而异，但包含一个name()成员，该函数返回一个随实现而异的字符串，通常（但并非一定）是类的名称。可以这样显示：
 
 ```cpp
 int main(int argc, char const* argv[])
@@ -142,11 +153,11 @@ int main(int argc, char const* argv[])
 ```
 
 #### 1.4 误用RTTI的例子
-`有些人对RTTI口诛笔伐，认为它是多余的，会导致程序效率低下和糟糕的编程方式。这里有一个需要尽量避免的例子。`
+有些人对RTTI口诛笔伐，认为它是多余的，会导致程序效率低下和糟糕的编程方式。这里有一个需要尽量避免的例子。
 
-`在判断是否能调用某个方法时，尽量不要使用if-else和typeid的形式，因为这会使得代码冗长。`
+在判断是否能调用某个方法时，尽量不要使用if-else和typeid的形式，因为这会使得代码冗长。
 
-`如果在扩展的if else语句系列中使用了typeid，则应该考虑是否应该使用虚函数和dynamic_cast。`
+如果在扩展的if else语句系列中使用了typeid，则应该考虑是否应该使用虚函数和dynamic_cast。
 ### [2. 类型转换运算符](#) 
 C++的创始人Bjarne Stroustrup认为，C语言中的类型转换运算符太过松散，比如，在C语言中，可将指向一个对象的指针转换为完全不相关的类型，编译器不会报错（而C++中使用这种C风格类型转换也不会报错）
 
@@ -169,7 +180,7 @@ int * pint = (int*)str;
 
 可以根据目的选择一个合适地运算符，而不是使用通用地类型转换。这指出了进行类型转换的原因，并让编译器能够检查程序的行为是否与设计者想法吻合。
 
-`它们的用法都相似：`
+它们的用法都相似：
 ```
 dynamic_cast <type_name> (expression)
 static_cast <type_name> (expresson)
@@ -177,15 +188,15 @@ const_cast <type_name> (expresson)
 reinterpret_cast <type_name> (expresson)
 ```
 
-|`关键字`|`说明`|
+|关键字|说明|
 |:----|:----|
-|`static_cast`|`用于良性转换，一般不会导致意外发生，风险很低。`|
-|`const_cast`|`用于 const 与非 const、volatile 与非 volatile 之间的转换。`|
-|`reinterpret_cast`|`高度危险的转换，这种转换仅仅是对二进制位的重新解释，不会借助已有的转换规则对数据进行调整，但是可以实现最灵活的 C++ 类型转换。`|
-|`dynamic_cast`|`借助 RTTI，用于类型安全的向下转型（Downcasting）。`|
+|static_cast|用于良性转换，一般不会导致意外发生，风险很低。|
+|const_cast|用于 const 与非 const、volatile 与非 volatile 之间的转换。|
+|reinterpret_cast|高度危险的转换，这种转换仅仅是对二进制位的重新解释，不会借助已有的转换规则对数据进行调整，但是可以实现最灵活的 C++ 类型转换。|
+|dynamic_cast|借助 RTTI，用于类型安全的向下转型（Downcasting）。|
 
 #### [2.1 dynamic_cast](#)
-前面以及讲过了，**dynamic_cast** 用于类继承层次间的指针或引用转换。主要还是用于执行 **“安全的向下转型（safe downcasting）” **， 如本节 1.2所述！
+前面以及讲过了，**dynamic_cast** 用于类继承层次间的指针或引用转换。主要还是用于执行 **安全的向下转型（safe downcasting）**， 如本节 1.2所述！
 
 作用对象的是： **指针或引用**  
 
@@ -202,9 +213,9 @@ type v = static_cast<type>(expr);
 //将 expr 转换为 type类型
 ```
 
-* 用于基本数据类型之间的转换，如把 `int` 转换成 `char`，把`int`转换成`enum。`
-* 把空指针`void *`转换成目标类型的指针 `type * `。
-* 把任何类型的表达式转换成 `void`类型。
+* 用于基本数据类型之间的转换，如把 int 转换成 char，把int转换成enum。
+* 把空指针void *转换成目标类型的指针 type * 。
+* 把任何类型的表达式转换成 void类型。
 
 注意：static_cast不能转换掉expression的const、volatile、或者__unaligned属性。
 
@@ -268,4 +279,4 @@ reinterpret_cast是为了映射到一个完全不同类型的意思，这个关�
 
 
 -----
-`时间`: `[]` 
+时间: [] 
