@@ -6,14 +6,7 @@
 **目录**：
 CMake本身也具有很多的内容所以对CMake学习的学习也应该分阶段进行，逐步掌握，在有一个大概的了解，和对CMake内容有一定的掌握后就可以进行字典化学习，需要什么就查询相应的内容就可以了。
 
-一. 基础使用 - 能够构建一个小项目：**库、测试、安装**
-
-- **01.** CMake 体系结构与工作原理 [->](./contents/BasicStage/CMakeBasicknowledge.md)
-- **02.** CMake 静态库和动态库 [->](./contents/BasicStage/CMakeStaticAndDynamicLibrary.md)
-- **03.** CMake 认识变量 [->](./contents/BasicStage/CMakeBasicknowledge.md)
-
-
-
+一.  CMake 基础教程使用 [**-->**](./Foundation.md)
 
 
 
@@ -24,6 +17,7 @@ X. 知识清单查询
 3. [CMake 内置变量](./contents/CMakeInternalVariable.md)
 4. [CMake 指令](./contents/CMakeInstructions.md)
 5. [CMake 结构化指令](./contents/CMakeStructuredInstruction.md)
+6. [CMake 命令及其参数](./contents/CMakeCommandLine.md)
 
 
 

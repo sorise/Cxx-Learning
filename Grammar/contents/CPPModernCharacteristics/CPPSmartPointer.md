@@ -115,7 +115,40 @@ int *ptr = new (nothrow) int(500);
 ```
 
 #### [1.4 new和delete的本质](#) 
-*operator new等操作它们本质上是对c语言的 `malloc`、`calloc`、`free`的上层封装！ 底层还是最基本的c语言内存申请和释放！ 最底层没有任何特殊的设计！
+`operator new` 等操作它们本质上是对c语言的 `malloc`、`calloc`、`free`的上层封装！ 底层还是最基本的c语言内存申请和释放！ 最底层没有任何特殊的设计！
+
+```cpp
+class user {
+private:
+    std::string _name;
+    uint16_t _age;
+public:
+    user(): user("",0){
+        std::cout << "Call default constructor" << std::endl;
+    };
+    explicit user(const std::string& name, const uint16_t& age):_name(name), _age(age){
+        std::cout << "Call constructor" << std::endl;
+    };
+    std::string getName() const{ return _name; };
+    uint16_t getAge() const{ return _age; };
+    ~user() {
+        std::cout << "Call destory" << std::endl;
+    };
+};
+
+int main() {
+    user* up = (user *)calloc(1, sizeof(user));
+    *up = user("remix", 28);
+
+
+    free(up);
+    return 0;
+}
+/*
+Call constructor
+Call destory
+*/
+```
 
 #### [1.5 直接使用c语言分配再使用](#)
 看代码吧！

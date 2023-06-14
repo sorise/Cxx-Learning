@@ -2,207 +2,35 @@
 **介绍**：条件命令、循环命令、迭代命令、list、函数、字符串。
 
 ----
-- [1. CMake 条件表达式 if](#1-cmake-条件表达式-if)
+- [1. CMake 数学运算](#1-cmake-数学运算)
 - [2. CMake 列表 list](#2-cmake-列表-list)
 - [3. CMake 字符串 string](#3-cmake-字符串-string)
 - [4. CMake function](#4-cmake-function)
 - [5. CMake while](#5-cmake-while)
 - [6. CMake foreach](#6-cmake-foreach)
-- [7. CMake 数学运算](#7-cmake-数学运算)
+
 
 ----
+### [1. CMake 数学运算](#)
+有时候，我们需要对 CMake 变量之间进行数学运算，这时候 CMake 提供了 math() 这个命令，命令格式如下：
 
-### [1. CMake 条件表达式 if](#)
-条件命令，类似于C语言的条件分支指令。
-
-|命令|解释|
-|:----|:----|
-|**1. if**| if 表达式|
-|**2. elseif**| else if  表达式|
-|**3. else**| else 表达式|
-|**4. endif**| endif 表达式|
-
-```shell
-if(<condition>)
-  <commands>
-elseif(<condition>) # optional block, can be repeated
-  <commands>
-else()              # optional block
-  <commands>
-endif()
+```cmake
+math(EXPR outVar mathExpr [OUTPUT_FORMAT format])
 ```
+这个命令也很简单，直接通过 CMake 变量结合数学运算符组成 mathExpr，然后计算结果会保存到 outVar 中。
 
-**基本条件表达式**
-```
-if(value)
-```
-* ON、YES、TRUE、Y 被视为真
-* OFF、NO、FALSE、N、IGNORE、NOTFOUND、空字符串、以 -NOTFOUND 结尾的字符串被视为假。
-* 如果是一个数字，将根据 C 语言的规则转换成 bool 值。
-* 如果上述三种情况都不适用，那该条件表达式将被当作一个变量的名字。
-    * 如果没有使用引号，那该变量的值会和为假的值对比，如果匹配上则为假，否则为真。如果其值是空字符串则为假。
-    * 如果使用引号
-        * cmake 3.1 及以后，如果该字符串不匹配任何为真的值，那该条件表达式为假。
-        * cmake 3.1 以前，如果该字符串匹配到任何存在的变量名字，则会按照变量处理。
-    * `if(ENV{some_var})` 这种形式的条件表达式永远为假，所以不要使用环境变量。
-
-
-**逻辑表达式:** **NOT**、**AND**、**OR**
-```shell
-if(NOT <condition>)
-
-if(<cond1> AND <cond2>)
-
-if(<cond1> OR <cond2>)
-
-if((condition) AND (condition OR (condition)))
-```
-
-#### [1.1 关系表达式](#)
-可以理解为C++语言里面条件表达式: **==**、**<**、**<=**、**>**、**>=**。
-
-CMake表达式有： EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, STREQUAL, STRLESS, STRLESS_EQUAL, STRGREATER, STRGREATER_EQUAL, VERSION_EQUAL, VERSION_LESS, VERSION_LESS_EQUAL, VERSION_GREATER, VERSION_GREATER_EQUAL, and MATCHES.
+OUTPUT_FORMAT 是可选参数，代表输出结果的格式，可以是 HEXADECIMAL：输出 16 进制结果，DECIMAL：输出 10 进制结果。
 
 使用例子：
-```shell
-if(<variable|string> MATCHES regex)
-
-if(<variable|string> LESS <variable|string>)
-
-if(<variable|string> GREATER <variable|string>)
-
-if(<variable|string> EQUAL <variable|string>)
-
-if(<variable|string> LESS_EQUAL <variable|string>)
-
-if(<variable|string> GREATER_EQUAL <variable|string>)
-
-if(<variable|string> STRLESS <variable|string>)
-
-if(<variable|string> STRGREATER <variable|string>)
-
-if(<variable|string> STREQUAL <variable|string>)
-
-if(<variable|string> STRLESS_EQUAL <variable|string>)
-
-if(<variable|string> STRGREATER_EQUAL <variable|string>)
-```
-
-#### [1.2 版本对比](#)
-
-使用例子：
-```shell
-if(<variable|string> VERSION_LESS <variable|string>)
-
-if(<variable|string> VERSION_GREATER <variable|string>)
-
-if(<variable|string> VERSION_EQUAL <variable|string>)
-
-if(<variable|string> VERSION_LESS_EQUAL <variable|string>)
-
-if(<variable|string> VERSION_GREATER_EQUAL <variable|string>)
-```
-
 ```cmake
-MESSAGE(NOTICE ${CMAKE_SYSTEM})      #Linux-5.19.0-38-generic
-MESSAGE(NOTICE ${CMAKE_SYSTEM_NAME}) #Linux
-MESSAGE(NOTICE ${UNIX})              #1
-MESSAGE(NOTICE ${WIN32})             #
-IF (CMAKE_SYSTEM_NAME MATCHES "Linux") #TRUE
-    MESSAGE(NOTICE "the os is linux")
-ENDIF()
+set(x 20)
+set(y 20)
 
-```
+math(EXPR result "(${x}+${y})*100" OUTPUT_FORMAT DECIMAL)
+math(EXPR result_16 "(${x}+${y})*100" OUTPUT_FORMAT HEXADECIMAL)
 
-#### [1.3 File Operations](#)
-文件操作对比运算符！
-
-使用例子： 如果命名的文件或目录存在，则为True。行为仅针对显式完整路径进行定义（前导~/不会扩展为主目录，而是被视为相对路径）。
-```shell
-if(EXISTS path-to-file-or-directory)
-```
-
-如果文件1比文件2新，或者两个文件中的一个不存在，则为True。
-```shell
-if(file1 IS_NEWER_THAN file2)
-```
-
-如果给定的名称是目录，则为True。仅对完整路径定义行为。
-```shell
-if(IS_DIRECTORY path-to-directory)
-```
-
-如果给定的名称是符号链接，则为True。仅对完整路径定义行为。
-```shell
-if(IS_SYMLINK file-name)
-```
-
-如果给定的路径是绝对路径，则为True。注意以下特殊情况：
-
-* 空路径的计算结果为false。
-* 在Windows主机上，任何以驱动器号和冒号（例如C:）、正斜杠或反斜杠开头的路径都将计算为true。这意味着像C:\base\dir这样的路径将计算为true，即使路径的非驱动器部分是相对的。
-* 在非Windows主机上，任何以波浪号（~）开头的路径的计算结果都为true。
-
-```cmake
-if(IS_ABSOLUTE path)
-```
-
-#### [1.4 判断是否存在](#)
-使用IF可以判断是否定义了某个变量、表达式、策略、命令！
-
-* IF(DEFINED my_names)  是否定义了普通变量 my_names
-* IF(DEFINED CACHE{NETWORK_VERSION_LASTED})  是否定义了缓存变量 NETWORK_VERSION_LASTED
-* IF(DEFINED ENV{user_name}) 是否定义了环境变量 user_name
-* IF(COMMAND name) 是否定义了某个变量
-* IF(POLICY name)  是否定义了某个策略
-* IF(TARGET name) 是否定义了某个目标
-* IF(TEST name) 是否定义了某个测试
-
-
-```cmake
-SET(my_names [[kicker、miner、kicker]])
-
-IF(DEFINED my_names)
-    MESSAGE(STATUS ${my_names})  #[[kicker、miner、kicker]]
-ENDIF()
-
-SET(NETWORK_VERSION_LASTED "1.3.4" CACHE STRING "system release version lasted!")
-
-IF(DEFINED CACHE{NETWORK_VERSION_LASTED})
-    MESSAGE(STATUS ${NETWORK_VERSION_LASTED}) #1.3.4
-ENDIF()
-
-IF(DEFINED ENV{user_name})
-    MESSAGE(STATUS "DEFINE user_name")
-ELSEIF()
-    MESSAGE(STATUS "NO DEFINE user_name")
-ENDIF()
-```
-
-其他命令：
-```cmake
-if(COMMAND name)
-if(POLICY name)
-if(TARGET name)
-if(TEST name)               # Available since CMake 3.4
-if(value IN_LIST listVar)   # Available since CMake 3.3
-
-if(DEFINED SOMEVAR)           # Checks for a CMake variable (regular or cache)
-if(DEFINED CACHE{SOMEVAR})    # Checks for a CMake cache variable
-if(DEFINED ENV{SOMEVAR})      # Checks for an environment variable
-```
-
-#### [1.5 正则表达式](#)
-正则表达式:
-
-```cmake
-if(value MATCHES regex)
-```
-
-```cmake
-if("Hi from ${who}" MATCHES "Hi from (Fred|Barney).*")
-		message("${CMAKE_MATCH_1} says hello")
-endif()
+message(NOTICE "result:${result}")      #4000
+message(NOTICE "result16:${result_16}") #0xfa0
 ```
 
 ### [2. CMake 列表 list](#)
@@ -641,26 +469,4 @@ endforeach()
 -- num_0=three, num_1=tiga
 -- num_0=four, num_1=
 ]]#
-```
-
-### [7. CMake 数学运算](#)
-有时候，我们需要对 CMake 变量之间进行数学运算，这时候 CMake 提供了 math() 这个命令，命令格式如下：
-
-```cmake
-math(EXPR outVar mathExpr [OUTPUT_FORMAT format])
-```
-这个命令也很简单，直接通过 CMake 变量结合数学运算符组成 mathExpr，然后计算结果会保存到 outVar 中。
-
-OUTPUT_FORMAT 是可选参数，代表输出结果的格式，可以是 HEXADECIMAL：输出 16 进制结果，DECIMAL：输出 10 进制结果。
-
-使用例子：
-```cmake
-set(x 20)
-set(y 20)
-
-math(EXPR result "(${x}+${y})*100" OUTPUT_FORMAT DECIMAL)
-math(EXPR result_16 "(${x}+${y})*100" OUTPUT_FORMAT HEXADECIMAL)
-
-message(NOTICE "result:${result}")      #4000
-message(NOTICE "result16:${result_16}") #0xfa0
 ```
