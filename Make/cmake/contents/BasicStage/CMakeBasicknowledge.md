@@ -82,8 +82,14 @@ CMake的工作原理可以分为三个步骤:配置、生成和构建。
 
 <img src="../assets/shoudajinbu.png" width="600px" />
 
+CMake会读取CMakeLists.txt文件，这个文件描述了项目的结构和依赖关系。
+
+* **在配置阶段**，CMake会根据CMakeLists.txt文件中的指令和变量，生成一个CMake缓存文件，这个文件包含了所有的配置信息，例如编译器、库文件、头文件路径等等。CMake 缓存文件可以通过命令行参数或者CMakeGUI进行修改。
+* **接下来是生成阶段**，CMake 会根据CMake缓存文件生成Makefile或者Visual Studio 等IDE所需的项目文件。这个过程中，CMake 会.根据不同的平台和编译器生成不同的项目文件，从而实现跨平台的构建。生成的项目文件包含了编译选项、链接选项、依赖关系等等。
+* 最后是**构建阶段**，CMake会调用底层的构建工具(例如make、ninja等)来进行实际的构建。在构建阶段，CMake会根据生成的项目文件进行编译、链接等操作，最终生成可执行文件或者库文件。
 
 #### [1.4 CMake 概念](#)
+
 CMake有三个关键概念：**target**、**generator** 和 **command**。
 * **target** ：就是cmake最终要生成的目标，通常是一个可执行文件或者是库文件。
     * **add_library** ：生成一个库目标；

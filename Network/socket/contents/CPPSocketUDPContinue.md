@@ -40,7 +40,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 * addrlen: 表示 dest_addr 的长度;
 
 
-##### [1.3 recvfrom](#)
+#### [1.3 recvfrom](#)
 接受从其他地方受到的信息，一次 recvform 只收一个报文。 如果用户传过来三个报文，recvform就需要调用三次。**谨记！**
 
 ```cpp

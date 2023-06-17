@@ -20,7 +20,8 @@
 
 * **01.** CMake IF 流程控制、策略初探 [->](./contents/GrammarStage/CMakeGrammarIFCommad.md)
 * **02.** CMake 属性 [->](./contents/GrammarStage/CMakeGrammarProperty.md)
-* **03.** CMake String、list、function、while、foreach结构化指令 [->](./contents/GrammarStage/CMakeStructuredInstruction.md)
+* **03.** CMake string、list、while、foreach结构化指令 [->](./contents/GrammarStage/CMakeStructuredInstruction.md)
+* **04** CMake 宏 macro 和 function  [-->](./contents/GrammarStage/CMakeGrammarMacro.md)
 
 
 

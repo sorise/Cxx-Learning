@@ -5,9 +5,8 @@
 - [1. CMake 数学运算](#1-cmake-数学运算)
 - [2. CMake 列表 list](#2-cmake-列表-list)
 - [3. CMake 字符串 string](#3-cmake-字符串-string)
-- [4. CMake function](#4-cmake-function)
-- [5. CMake while](#5-cmake-while)
-- [6. CMake foreach](#6-cmake-foreach)
+- [4. CMake while](#4-cmake-while)
+- [5. CMake foreach](#5-cmake-foreach)
 
 
 ----
@@ -99,13 +98,13 @@ message(NOTICE "names length: ${len}")  #4
 通过索引可以获取某个元素，或者获取某一些元素！
 
 ```cmake
-set(names remix kicker tome killer)
+set(names remix kicker tome killer)#  remix kicker tome killer
 
 list(GET names 2 element)    #获得一个元素
-list(GET names 1 2 elements) #获得两个元素
+list(GET names -1 2 elements) #获得两个元素
 
 message(STATUS "element: ${element}") #tome
-message(STATUS "elements: ${elements}") #kicker;tome
+message(STATUS "elements: ${elements}") #killer;tome
 ```
 
 #### [2.4 insert插入](#)
@@ -157,14 +156,20 @@ CMake提供了处理字符串的string() 命令，其形式：
   string(REGEX REPLACE <match-regex> <replace-expr> <out-var> <input>...)
 
 # 操作字符串
+  #追加内容	
   string(APPEND <string-var> [<input>...])
   string(PREPEND <string-var> [<input>...])
   string(CONCAT <out-var> [<input>...])
   string(JOIN <glue> <out-var> [<input>...])
+  #转小写	
   string(TOLOWER <string> <out-var>)
+  #转大写	
   string(TOUPPER <string> <out-var>)
+  #获取字符串长度
   string(LENGTH <string> <out-var>)
+  #截取子串	
   string(SUBSTRING <string> <begin> <length> <out-var>)
+  #去掉空格
   string(STRIP <string> <out-var>)
   string(GENEX_STRIP <string> <out-var>)
   string(REPEAT <string> <count> <out-var>)
@@ -318,33 +323,94 @@ message(STATUS "running at: ${CURRENT_DATETIME}")
 #running at: 2023/03/24 21:34:21
 ```
 
-### [4. Cmake function](#)
-在CMake中定义函数，首个参数是函数名，随后的是参数！ Cmake函数和C++一样具有自己的作用域，**同时也支持 return()操作！**
-
-重点理解一下参数的意义！怎么获得参数名，怎么获得参数值。
+#### [3.7 JSON 操作](#)
 
 ```cmake
-function(<name> [<arg1> ...])
-  <commands>
-endfunction()
+#[[JSON]]
+string(JSON <out-var> [ERROR_VARIABLE <error-var>]
+     {GET | TYPE | LENGTH | REMOVE}
+     <json-string> <member|index> [<member|index> ...])
+string(JSON <out-var> [ERROR_VARIABLE <error-var>]
+     MEMBER <json-string>
+     [<member|index> ...] <index>)
+string(JSON <out-var> [ERROR_VARIABLE <error-var>]
+     SET <json-string>
+     <member|index> [<member|index> ...] <value>)
+string(JSON <out-var> [ERROR_VARIABLE <error-var>]
+     EQUAL <json-string1> <json-string2>)
 ```
 
-使用例子：
+测试，获取JSON 值！
+
 ```cmake
-function(get_datetime VAL)
-    message(NOTICE "variable : ${VAL}, ${${VAL}}")
-    #variable : DT, now
+set(JSON_STRING
+[=[
+{
+  "name" : "test_string",
+  "sites": {
+    "site": [
+      {
+        "id": "1",
+        "name": "fuck me!",
+        "url": "www.fucking.com"
+      },
+      {
+        "id": "2",
+        "name": "remix",
+        "url": "power.hub.com"
+      }
+    ]
+  }
+}
+]=])
 
-    string(TIMESTAMP temp "%Y/%m/%d %H:%M:%S")
-    set(${VAL} ${temp} PARENT_SCOPE)
-endfunction()
+message(${JSON_STRING})
 
-set(DT "now")
-get_datetime(DT)
-message(STATUS "running at: ${DT}")
+#[=[
+string(JSON <out-var> [ERROR_VARIABLE <error-var>]
+     {GET | TYPE | LENGTH | REMOVE}
+     <json-string> <member|index> [<member|index> ...])
+]=]
+
+string( JSON outName ERROR_VARIABLE errorVal GET
+        ${JSON_STRING}
+        sites site 0 url
+)
+
+string( JSON outLen ERROR_VARIABLE error_Val LENGTH
+        ${JSON_STRING}
+        sites site
+)
+
+string( JSON NEW_JSON_STRING ERROR_VARIABLE error_Val SET
+        ${JSON_STRING}
+        sites site 2 [[
+              {
+                "id": "3",
+                "name": "so rise",
+                "url": "king.hub.com"
+              }
+        ]]
+)
+
+message("sites.site[0].url = ${outName}")
+message("sites.site Length = ${outLen}")
+message("NEW_JSON_STRING = ${NEW_JSON_STRING}")
+#sites.site[0].url = www.fucking.com
+#sites.site Length = 2
+
+string( JSON REMOVE_JSON_STRING ERROR_VARIABLE error_Val REMOVE
+        ${NEW_JSON_STRING}
+        sites site 2
+)
+message(${REMOVE_JSON_STRING})
+
 ```
 
-### [5. Cmake while](#)
+
+
+### [4. Cmake while](#)
+
 可能用得较少... ,支持**break()** 指令提前结束循环! 支持 **continue()** 直接下一轮!
 
 ```cmake
@@ -363,7 +429,7 @@ endwhile()
 ```
 
 
-### [6. Cmake foreach](#)
+### [5. Cmake foreach](#)
 CMake 迭代器！支持**break()** 指令提前结束循环! 支持 **continue()** 直接下一轮!
 
 ```cmake
@@ -375,7 +441,7 @@ endforeach()
 * 在每次迭代开始时，变量\<loop_var\>将被设置为当前项的值。
 * \<loop_var\>的作用域仅限于循环作用域。
 
-#### [6.1 简单循环](#)
+#### [5.1 简单循环](#)
 ```cmake
 set(VS "kicker;god;need;mike")
 
@@ -390,7 +456,7 @@ endforeach()
 ]]#
 ```
 
-#### [6.2 RANGE 数值迭代](#)
+#### [5.2 RANGE 数值迭代](#)
 很简单的。
 ```cmake
 foreach(<loop_var> RANGE <start> <stop> [<step>])
@@ -423,7 +489,7 @@ endforeach()
 ]]#
 ```
 
-#### [6.3 IN List迭代](#)
+#### [5.3 IN List迭代](#)
 ```cmake
 foreach(<loop_var> IN [LISTS [<lists>]] [ITEMS [<items>]])
 ```
@@ -454,7 +520,7 @@ item: mike
 item: minis]]
 ```
 
-#### [6.4 迭代 ZIP_LISTS](#)
+#### [5.4 迭代 ZIP_LISTS](#)
 ```cmake
 list(APPEND English one two three four)
 list(APPEND Bahasa satu dua tiga)
