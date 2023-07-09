@@ -8,6 +8,7 @@
 - [x] [3. 移交线程归属权](#3-移交线程归属权)
 - [x] [4. 线程集合](#4-线程集合)
 - [x] [5. 管理当前线程的函数](#5-管理当前线程的函数)
+- [x] [6. 线程状态说明](#6-线程状态说明)
 
 -----
 
@@ -168,7 +169,7 @@ void f() {
 | join    | void      | void join();        | 等待线程完成其执行, 阻塞当前线程直至 *this 所标识的线程结束其执行!|
 | detach    | void      | void detach();        | 容许线程从线程句柄独立开来执行, 从 thread 对象分离执行线程，允许执行独立地持续。|
 | swap    | void      | void swap( std::thread& other ) noexcept;        | 交换二个 thread 对象    |
-|get_id|std::thread::id|std::thread::id get_id() const noexcept;|返回标识与 *this 关联的线程的 std::thread::id 。|
+|get_id|std`::`thread`::`id|std`::`thread`::`id get_id() const noexcept|返回标识与 *this 关联的线程的 std`::`thread`::`id 。|
 |[静态方法] hardware_concurrency|unsigned int|static unsigned int hardware_concurrency() noexcept;|返回实现支持的并发线程数。应该只把该值当做提示。|
 |joinable()|bool|bool joinable() const noexcept;|检查线程是否可合并，即潜在地运行于平行环境中！调用join以后就返回false!|
 
@@ -344,6 +345,7 @@ std::thread t(task, remix, count, true);
 ```
 
 **引用传递的问题** 如下调用不会通过运行，因为calculate要求的是一个引用参数，应该是左值，但是传递的确实右值。
+
 ```cpp
 //参数是引用
 void calculate(int &count) {
@@ -687,9 +689,7 @@ std::cout << thread::hardware_concurrency << "\n";
 #### [5.1 让当前线程放弃争夺cpu资源](#)
 提供提示给实现，以重调度线程的执行，允许其他线程运行。
 
-此函数的准确行为依赖于实现，特别是取决于使用中的 OS 调度器机制和系统状态。例如，先进先出实
-时调度器（ Linux 的 SCHED_FIFO ）将悬挂当前线程并将它放到准备运行的同优先级线程的队列尾
-（而若无其他线程在同优先级，则 yield 无效果）。
+此函数的准确行为依赖于实现，特别是取决于使用中的 OS 调度器机制和系统状态。例如，先进先出实时调度器（ Linux 的 SCHED_FIFO ）将悬挂当前线程并将它放到准备运行的同优先级线程的队列尾（而若无其他线程在同优先级，则 yield 无效果）。
 
 ```cpp
 void yield() noexcept;
@@ -703,10 +703,10 @@ while(!isDone()); // Bad
 while(!isDone()) yield(); // Good
 ```
 
-std::this_thread::yield() 的目的是避免一个线程频繁与其他线程争抢CPU时间片, 从而导致多线程处理性能下降.
+**std::this_thread::yield()** 的目的是避免一个线程频繁与其他线程争抢CPU时间片, 从而导致多线程处理性能下降.
 
 std::this_thread::yield(); 是将当前线程所抢到的CPU”时间片A”让渡给其他线程(其他线程会争抢”时间片A”,注意: 此时”当前线程”不参与争抢).
-等到其他线程使用完”时间片A”后, 再由操作系统调度, 当前线程再和其他线程一起开始抢CPU时间片.
+等到其他线程使用完”时间片A”后, 再由操作系统调度, 当前线程再和其他线程一起开始抢CPU时间片。
 
 #### [5.2 返回当前线程的线程 id](#)
 线程的标识类型是 `std::thread::id` 这是一个类，可以通过两种方式进行检索。其对象作为线程ID，可以进行复制操作和比较运算，如果两个线程的 `std::thread::id`相等！
@@ -746,5 +746,44 @@ int main(int args, char* argv[]) {
 	return 0;
 }
 ```
+
+### [6. 线程状态说明](#)
+线程和进程一样都是有状态的，明白线程运行时处于哪个状态对于调试线程非常重要,  <span style="color:#2c73ff;font-weight:600;font-family:宋体" >线程有5种状态：新建（new Thread）、就绪（runnable），运行（running）、阻塞（blocked）、结束（dead）</span>。 `[八股范畴]`
+
+* **初始化(Init/new)**：该线程正在被创建，一旦创建完毕就进入就绪状态，放到就绪队列里面。
+* **就绪(Ready)**：该线程在就绪列表中，等待 CPU 调度。
+* **运行(Running)**：该线程正在运行。
+* **阻塞(Blocked)**：该线程被阻塞挂起。Blocked 状态包括：pend(锁、 事件、信号量等阻塞)、suspend（主动 pend）、delay(延时阻塞)、 pendtime(因为锁、事件、信号量时间等超时等待)。
+* **退出(Exit/dead)**：该线程运行结束，**等待父线程回收其控制块资源**。
+
+
+
+<img src="./assets/image-20230705194342380.png" alt="image-20230705194342380" width="700px" />
+
+
+
+| 方法                     | 状态说明                                                     |
+| ------------------------ | ------------------------------------------------------------ |
+| task.join()              | join方法，阻塞当前线程thread，直到任务线程task执行完成；     |
+| task.detach()            | 使得当前线程脱离主线程的控制，该线程的资源由后台进程回收资源； |
+| sleep_for                | 使当前线程的执行停止指定的时间段                             |
+| sleep_until              | 使当前线程的执行停止直到指定的时间点                         |
+| yield                    | 该函数的功能是让当前线程放弃争夺cpu资源，让操作系统调度进行其他操作。 |
+| lock、try_lock_for/until | 阻塞等待获得锁                                               |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -----

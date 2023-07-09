@@ -834,7 +834,7 @@ int main(int argc, char const* argv[])
 
 
 ### [8. 数值算法](#)
-**max、min、equal、accumulate**
+定义在头文件  `<numeric>`， **max、min、equal、accumulate**
 
 #### [8.1 accumulate](#)
 计算给定值 init 与给定范围 [first, last) 中元素的和。需要元素重载了运算符 **operator+**
@@ -877,7 +877,7 @@ begin和end是容器的两个成员函数，后来,数组也支持标准库函�
 
 * **begin**： 返回指向数组首元素的指针
 * **end**： 返回指向数组尾元素下一个位置的指针
- 
+
 ```cpp
 int a[] = {1, 2, 3, 4 ,5};//a是一个含有5个整型的数组
 int *fir = begin(a);//指向a首元素的指针

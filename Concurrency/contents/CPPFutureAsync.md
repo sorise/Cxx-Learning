@@ -21,6 +21,48 @@
 * 线程等待某一个特定事件的发生，或者是线程等待某个条件变为true，才可以开始执行。  [**事件/条件等待**](#)
 * 限定线程等待一定时间 [**阻塞等待**](#)
 
+
+
+> **Race Contition 临界区**
+
+重点来了，如果两个线程操作的是不同内存位置的数据，那没有任何线程安全问题
+
+**但是操作的是同一个内存位置的数据，那就必须小心了**
+
+- 两者都读，没问题
+- 有一个要写，就有**race condition**的风险
+
+为了消除race condition，我们不得不**强制让两个线程对内存位置的操作是有序的**
+
+- 使用互斥量，保证在一个时间内只有一个线程进入临界区，先拿到锁的线程一定happen befor其他线程
+- **使用原子操作的同步语义 （后面会介绍）**
+
+> **Data Race 数据竞争** 
+
+**如果没有在两个线程之间规定访问同一个内存位置的顺序的话:**
+
+**某个操作不是原子的，并且某个操作是写，就会导致data race, 造成未定义行为**
+
+可以将data race视为race condition的一种
+
+我们也可以使用某些原子操作去避免未定义行为（在不enforce ordering的情况）
+
+**使用原子操作并非阻止race出现**，哪个原子操作会先访问内存仍然是不确定的。
+
+> **修改序**
+
+在C++中，每个对象在初始化之后，所有对它的写操作都是在程序中都是定义好的顺序
+
+也许在不同次的运行，顺序可能会不一样。但是在某次的程序执行下，所有的线程都必须遵从同一个修改序
+
+如果对象不是原子变量，你必须要保证有足够的**同步语义**来使所有线程都对**每个变量的修改顺序达成一致。**如果线程中看到的修改顺序互不相同，那么就有data race和未定义行为
+
+如果使用原子变量，**编译器**保证在正确的位置有必要的同步
+
+虽然所有线程都必须对同一个对象的修改序达成一致，**但是对不同的对象的相对修改序可以不一致**。
+
+
+
 #### [1.1 处理办法](#)
 首先想到的一种方法是：**通过互斥量设置条件标识**，线程A完成任务后，就修改条件，让线程B去运行。但是这种方法十分浪费，因为**需要反复循环检测条件标识**，浪费CPU处理时间。
 
@@ -143,14 +185,18 @@ int data_ = channel.front();
 ```
 
 #### [3.3 wait方法解释](#)
-如果传递给 **wait** 函数的`predicate`可调用对象，执行后返回false，那么直接解锁互斥量，并堵塞到本行(wait所在行)！
+如果传递给 **wait** 函数的`predicate`可调用对象，执行后返回false，那么直接解锁互斥量，并堵塞到本行(wait所在行)！ 有两个重载函数，不带谓词判断和带谓词判断。
 
-堵塞到其他某个线程使用 condition_variable对象 调用`notify_one`或`notify_all`函数为止, 然后重新在互斥量上获得锁，然后再次测试`predicate`，如果
-返回false，则直接继续堵塞，返回true, 唤醒线程，返回wait。此时互斥量还是被当前线程锁住的!
+```cpp
+void wait( std::unique_lock<std::mutex>& lock );
 
-若wait函数不传递第二个参数，当作直接返回false,直接堵塞，堵塞到其他某个线程调用`notify_one`或`notify_all`函数为止！
+template< class Predicate >
+void wait( std::unique_lock<std::mutex>& lock, Predicate pred );
+```
 
-如果执行后返回true，wait函数直接返回！直接执行之后的代码！
+对于带谓词的方法，如果执行后返回true，wait函数直接返回！直接执行之后的代码。 否则堵塞到其他某个线程使用 condition_variable对象 调用**notify_one**或**notify_all**函数为止, 然后重新在互斥量上获得锁，然后再次测试`predicate`，如果返回false，则直接继续堵塞，返回true, 唤醒线程，返回wait。此时互斥量还是被当前线程锁住的!
+
+**若wait函数不传递第二个参数，当作直接返回false,直接堵塞**，堵塞到其他某个线程调用**notify_one**或**notify_all**函数为止！
 
 #### [3.4 使用例子](#)
 向队列中输入一些数据，然后使得一个线程去打印，有数据的时候就打印，没数据的时候就等待！
@@ -329,9 +375,9 @@ std::cout << "result: " << value<< std::endl;
 |:----|:----|
 |get()|获取异步任务返回的结果，如果任务线程已经执行完毕，直接返回，否则阻塞等待！ **只能执行一次** |
 |valid()|检查 future 是否拥有共享状态|
-|wait()|等待结果变得可用|
-|std::future_status wait_for(duration) const;|等待结果，如果在指定的超时间隔后仍然无法得到结果，则返回。|
-|wait_until|等待结果，如果在已经到达指定的时间点时仍然无法得到结果，则返回。|
+|**wait()**|等待结果变得可用|
+|std::future_status **wait_for**(duration) const;|等待结果，如果在指定的超时间隔后仍然无法得到结果，则返回。|
+|**wait_until()**|等待结果，如果在已经到达指定的时间点时仍然无法得到结果，则返回。|
 
 ```cpp
 int add_special(const int & a,const int &b);
@@ -339,7 +385,31 @@ int add_special(const int & a,const int &b);
 std::future<int> result = std::async(add_special, std::ref(point_x) , std::ref(point_y));
 ```
 
+**std::future_status**: 指定 [std::future](https://zh.cppreference.com/w/cpp/thread/future) 和 [std::shared_future](https://zh.cppreference.com/w/cpp/thread/shared_future) 的 `wait_for` 和 `wait_until` 函数所返回的 future 状态。
+
+```cpp
+enum class future_status {
+    ready,	 //共享状态就绪
+    timeout, //共享状态在经过指定的等待时间内仍未就绪
+    deferred //共享状态持有的函数正在延迟运行，结果将仅在显式请求时计算
+};
+```
+
+使用例子：
+
+```cpp
+std::future_status status= result.wait_for(100ms);
+if(status == std::future_status::timeout){
+    std::cout << "need wait more time" << std::endl;
+}
+```
+
+
+
+
+
 #### [5.2 配合launch](#)
+
 使用launch去制定执行策略：
 
 ```cpp
@@ -348,7 +418,39 @@ std::future<int> result = std::async(std::launch::deferred,
 //如果result不调 get或者wait方法，线程都不会执行
 //执行任务的线程甚至可能是当前线程，而不是新开一个线程
 ```
+
+
+#### [5.3 Future 错误](#)
+
+Future 也可能会产生错误的，CPP提供了异常类用于指示 Futrue错误。
+
+类 **std::future_error** 定义异常对象，它为处理异步执行和共享状态（ [std::future](https://zh.cppreference.com/w/cpp/thread/future) 、 [std::promise](https://zh.cppreference.com/w/cpp/thread/promise) 等）的线程库中的函数在失败时抛出。
+
+```cpp
+std::future<int> empty;
+try {
+    int n = empty.get(); // 行为未定义，但一些实现抛出 std::future_error
+} catch (const std::future_error& e) {
+    std::cout << "Caught a future_error with code \"" << e.code()
+              << "\"\nMessage: \"" << e.what() << "\"\n";
+}
+```
+
+**std::future_errc** 是一个枚举类型定义 [std::future](https://zh.cppreference.com/w/cpp/thread/future) 及相关类于 [std::future_error](https://zh.cppreference.com/w/cpp/thread/future_error) 异常对象中报告的错误码。只要求四个错误码，尽管实现可以定义额外的错误码。
+
+```cpp
+enum class future_errc {
+    broken_promise             = /* 异步任务抛弃其共享状态 */,
+    future_already_retrieved   = /* 共享状态的内容已通过 std::future 访问 */,
+    promise_already_satisfied  = /* 试图两次存储值于共享状态*/,
+    no_state                   = /* 试图访问无关联共享状态的 std::promise 或 std::future */
+};
+```
+
+**future_category**,鉴别 future 错误类别
+
 ### [6. shared_future](#)
+
 std::shared_future提供了一种访问异步操作结果的机制；不同于std::future，std::shared_future允许多个线程等待同一个共享状态；
 不同于std::future仅支持移动操作，std::shared_future既支持移动操作也支持拷贝操作，而且多个shared_future对象可以引用相同的共享状态。
 
@@ -571,8 +673,7 @@ int main(int argc, char *argv[]){
 ```
 
 ### [8. promise](#) 
-这个东西**可以实现线程间的通信**,std::promise是个模板类, 其对象可以存储由future对象(可能在另一个线程中)检索
-的T类型的值或派生自std::exception的异常，并提供一个**同步点**, 可以实现同步功能。
+这个东西**可以实现线程间的通信**,std::promise是个模板类, 其对象可以存储由future对象(可能在另一个线程中)检索的T类型的值或派生自std::exception的异常，并提供一个**同步点**, 可以实现同步功能，可以引用传递也可以移动传递。
 
 
 ```cpp

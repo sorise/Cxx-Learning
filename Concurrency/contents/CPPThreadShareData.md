@@ -8,17 +8,21 @@
 - [x] [4. lock_guard](#4-lock_guard)
 - [x] [5. unique_lock](#5-unique_lock)
 - [x] [6. 死锁](#6-死锁)
-- [x] [7. 单次调用](#7-单次调用)
+- [x] [7. 单次调用 call_once](#7-单次调用)
 - [x] [8. 其他互斥量](#8-其他互斥量)
 - [x] [9. timed_mutex](#9-timed_mutex)
 - [x] [10. recursive_mutex](#10-recursive_mutex)
 - [x] [11. recursive_timed_mutex](#11-recursive_timed_mutex)
 - [x] [12. shared_mutex](#12-shared_mutex)
 - [x] [13. shared_lock](#13-shared_lock)
+- [x] [14. scoped_lock](#14-scoped_lock) 
 
 -----
 
+
+
 ### [1. 线程间共享数据的问题](#)
+
 归根结底，多线程共享数据的问题主要是**数据写操作**引发的，如果线程之间只有读操作，就根本不会有问题。由于线程的异步性，不同的线程对同一数据项的写顺序是不可预测的，由于顺序不可预测。
 而写操作需要正确的顺序才能使得数据项不出错误。
 
@@ -460,7 +464,6 @@ private:
 #include<map>
 #include <sstream>
 
-
 using std::cout;
 using std::endl;
 using std::cin;
@@ -621,7 +624,7 @@ std::unique_lock<std::mutex> lk_c(m_c, std::try_to_lock); //尝试锁，锁不�
 * try_lock_for()  试图锁定关联的可定时锁定 (`TimedLockable`) 互斥，若互斥在给定时长中不可用则返回
 * try_lock_until() 尝试锁定关联可定时锁定 (`TimedLockable`) 互斥，若抵达指定时间点互斥仍不可用则返回。
 * unlock() 解锁关联互斥
-* owns_lock() 测试锁是否占有其关联互斥, 常常和std::try_to_lock标记构造函数一起用
+* **owns_lock()**: 是否拥有锁，测试锁是否占有其关联互斥, 常常和std::try_to_lock标记构造函数一起用
 * release() 将关联互斥解关联而不解锁它, 会返回互斥量的指针，如果互斥量还需要unlock ，需要手动unlock。不然会造成程序崩溃。
 
 ```cpp
@@ -745,8 +748,8 @@ std::unique_lock<std::mutex> lock(mtx, std::try_to_lock); //尝试去锁
 * **将准则推广到锁操作以外** 
 
 #### [6.1 lock函数](#)
-**std::lock()** 是C++ 11 标准库提供的专门解决死锁问题的函数，可以同时锁定多个互斥量而不造成死锁。
-当然解锁方式只能是用 **std::lock_guard<std::mutex> guard2(mutex, std::adopt_lock);**
+**std::lock()** 是C++ 11 标准库提供的专门解决死锁问题的函数，可以同时锁定多个互斥量而不造成死锁。 C++17提供了 scoped_lock()。
+当然解锁方式只能是用 **std::lock_guard\<std::mutex\> guard2(mutex, std::adopt_lock);**
 
 ```cpp
 template< class Lockable1, class Lockable2, class... LockableN >
@@ -1516,8 +1519,20 @@ int main() {
 
 ```cpp
 shared_lock() noexcept;
+
 shared_lock( shared_lock&& other ) noexcept;
 explicit shared_lock( mutex_type& m );
+
+shared_lock( mutex_type& m, std::defer_lock_t t ) noexcept;//(C++14 起)
+shared_lock( mutex_type& m, std::try_to_lock_t t ); //(C++14 起)
+shared_lock( mutex_type& m, std::adopt_lock_t t );
+template< class Rep, class Period >
+    
+shared_lock( mutex_type& m, const std::chrono::duration<Rep,Period>& timeout_duration )
+// 尝试通过调用 m.try_lock_shared_for(timeout_duration) ，以共享模式锁定关联的互斥
+template< class Clock, class Duration >
+shared_lock( mutex_type& m, const std::chrono::time_point<Clock,Duration>& timeout_time );
+//尝试通过调用 m.try_lock_shared_until(timeout_time) ，以共享模式锁定关联的互斥
 ```
 
 
@@ -1553,7 +1568,109 @@ int main()
 }
 ```
 
+### [14. scoped_lock](#)
+类 **scoped_lock(C++17)** 是提供便利 [RAII 风格](https://en.wikipedia.org/wiki/Resource_Acquisition_Is_Initialization)机制的免死锁互斥包装器，它在作用域块的存在期间占有一或多个互斥。 **scoped_lock 类不可复制。**
 
+它的使用和lock_guard一样，没有其他什么方法。
+
+**构造函数**
+```cpp
+explicit scoped_lock( MutexTypes&... m );
+
+scoped_lock( std::adopt_lock_t, MutexTypes&... m );
+
+scoped_lock( const scoped_lock& ) = delete;
+```
+
+使用方法：
+```cpp
+mutex mux1, mux2;
+std::scoped_lock lock(mux1, mux2);
+```
+
+例子：
+```cpp
+#include <mutex>
+#include <thread>
+#include <iostream>
+#include <vector>
+#include <functional>
+#include <chrono>
+#include <string>
+ 
+struct Employee {
+    Employee(std::string id) : id(id) {}
+    std::string id;
+    std::vector<std::string> lunch_partners;
+    std::mutex m;
+    std::string output() const
+    {
+        std::string ret = "Employee " + id + " has lunch partners: ";
+        for( const auto& partner : lunch_partners )
+            ret += partner + " ";
+        return ret;
+    }
+};
+ 
+void send_mail(Employee &, Employee &)
+{
+    // 模拟耗时的发信操作
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+}
+ 
+void assign_lunch_partner(Employee &e1, Employee &e2)
+{
+    //
+    static std::mutex io_mutex;
+    {
+        std::lock_guard<std::mutex> lk(io_mutex);
+        std::cout << e1.id << " and " << e2.id << " are waiting for locks" << std::endl;
+    }
+ 
+    {
+        // 用 std::scoped_lock 取得二个锁，而无需担心
+        // 其他对 assign_lunch_partner 的调用死锁我们
+        // 而且它亦提供便利的 RAII 风格机制
+ 
+        std::scoped_lock lock(e1.m, e2.m);
+ 
+        // 等价代码 1 （用 std::lock 和 std::lock_guard ）
+        // std::lock(e1.m, e2.m);
+        // std::lock_guard<std::mutex> lk1(e1.m, std::adopt_lock);
+        // std::lock_guard<std::mutex> lk2(e2.m, std::adopt_lock);
+ 
+        // 等价代码 2 （若需要 unique_lock ，例如对于条件变量）
+        // std::unique_lock<std::mutex> lk1(e1.m, std::defer_lock);
+        // std::unique_lock<std::mutex> lk2(e2.m, std::defer_lock);
+        // std::lock(lk1, lk2);
+        {
+            std::lock_guard<std::mutex> lk(io_mutex);
+            std::cout << e1.id << " and " << e2.id << " got locks" << std::endl;
+        }
+        e1.lunch_partners.push_back(e2.id);
+        e2.lunch_partners.push_back(e1.id);
+    }
+ 
+    send_mail(e1, e2);
+    send_mail(e2, e1);
+}
+ 
+int main()
+{
+    Employee alice("alice"), bob("bob"), christina("christina"), dave("dave");
+ 
+    // 在并行线程中指派，因为就午餐指派发邮件消耗很长时间
+    std::vector<std::thread> threads;
+    threads.emplace_back(assign_lunch_partner, std::ref(alice), std::ref(bob));
+    threads.emplace_back(assign_lunch_partner, std::ref(christina), std::ref(bob));
+    threads.emplace_back(assign_lunch_partner, std::ref(christina), std::ref(alice));
+    threads.emplace_back(assign_lunch_partner, std::ref(dave), std::ref(bob));
+ 
+    for (auto &thread : threads) thread.join();
+    std::cout << alice.output() << '\n'  << bob.output() << '\n'
+              << christina.output() << '\n' << dave.output() << '\n';
+}
+```
 
 
 

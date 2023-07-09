@@ -1,19 +1,31 @@
-## [CMake 命令及其参数](#)
+### [CMake 命令及其参数](#)
+
 **介绍**: CMake常用命令，包括设置缓存变量，构建系统、项目安装、编译器参数等等！
 
 -----
 
+
+
+
+
 ### [1. CMake 常用命令](#)
+
+
 
 |命令|解释|
 |:----|:----|
 |**cmake -S . -B build**|CMakeLists.txt在当前目录，使用外部构建，输出到build目录中。|
 |**cmake --build build**|进行编译，编译目录是build。|
-|**cmake -S . -B debug-cmake-build -G "Unix Makefiles"**|使用-G 指定生成器！|
+|**cmake --build build -v**|进行编译，编译目录是build, 可以看一些警告信息。|
+|**cmake -S . -B build -G "Unix Makefiles"**|使用-G 指定生成器！|
+|**cmake -S . -B build -D CMAKE_BUILD_TYPE=Release**|进行编译，编译目录是build，并且指示编译类型|
 |**cmake --system-information information.txt**|关于系统的所有信息转储到屏幕或文件中。|
 |**cmake -P my_script.cmake**|执行一个Cmake脚本！|
 
+
+
 #### [2.1 CMake 常用参数](#)
+
 **cmake命令的选项实在太多了，我们挑几个常用的学习下。**
 
 * **-S** `<path-to-source>` 指定源码目录
@@ -42,12 +54,10 @@
 
 向导模式是在没有GUI时，交互式地运行cmake的模式。cmake会弹出一系列的提示，要求用户回答关于工程配置的一行问题。这些答复会被用来设置cmake的缓存值。
 
-**--L[A][H]**: 列出缓存的变量中的非高级的变量。
+**--L[A][H]** : 列出缓存的变量中的非高级的变量。
 -L选项会列出缓存变量会运行CMake，并列出所有CMake的内有被标记为INTERNAL或者ADVANCED的缓存变量。这会显示当前的CMake配置信息，然后你可以用-D选项改变这些选项。修改一些变量可能会引起更多的变量被创建出来。如果指定了A选项，那么命令也会显示高级变量。如果指定了H选项，那么命令会显示每个变量的帮助信息。
 
-**--build** <dir>: 构建由CMake生成的工程的二进制树。相当于执行make。
-
-
+**--build** \<dir\>: 构建由CMake生成的工程的二进制树。相当于执行make。
 
 **–graphviz=[file]**: 生成依赖的graphviz图。
 生成一个graphviz软件的输入文件，其中包括了项目中所有库和可执行文件之间的依赖关系。

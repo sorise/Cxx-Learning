@@ -54,17 +54,18 @@ set_target_properties(my_library PROPERTIES VERSION 1.0.0)
 设置属性使用如下命令：
 
 ```cmake
-set_property(<GLOBAL                      |
-              DIRECTORY [<dir>]           |
-              TARGET    [<target1> ...]   |
-              SOURCE    [<src1> ...]
-                        [DIRECTORY <dirs> ...]
-                        [TARGET_DIRECTORY <targets> ...] |
-              INSTALL   [<file1> ...]     |
-              TEST      [<test1> ...]     |
-              CACHE     [<entry1> ...]    >
-             [APPEND] [APPEND_STRING]
-               <name> [<value1> ...])
+set_property(<GLOBAL              |
+      DIRECTORY [<dir>]           |
+      TARGET    [<target1> ...]   |
+      SOURCE    [<src1> ...]
+                [DIRECTORY <dirs> ...]
+                [TARGET_DIRECTORY <targets> ...] |
+      INSTALL   [<file1> ...]     |
+      TEST      [<test1> ...]     |
+      CACHE     [<entry1> ...]    >
+     [APPEND] [APPEND_STRING]
+      <name> [<value1> ...]
+)
 ```
 
 set_property() 命令是设置属性的通用命令，第一个参数代表的是需要设置属性的实体，从上述命令的签名可以看出，可以设置属性的实体有：GLOBAL、TARGET、SOURCE、INSTALL、TEST、CACHE。
@@ -462,10 +463,6 @@ set_property(SOURCE muse.cpp PROPERTY COMPILE_DEFINITIONS "TEST_MACRO=123")
 ```cpp
 std::cout << TEST_MACRO << std::endl; //123
 ```
-
-
-
-
 
 
 
