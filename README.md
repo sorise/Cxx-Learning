@@ -8,7 +8,7 @@
 * C++ 基础语法 [**-->**](./Grammar)
 * C++ 并发编程 [**-->**](./Concurrency)
 * C++ 网络编程基础 [**-->**](./Network)
-* C++ 现代语法编程 [**-->**](./GrammarModule)
+* C++ 现代语法编程 [**-->**](./Grammar/GrammarModule)
 * C++ 项目系统组件 [**-->**](./Components)
 
 

@@ -258,7 +258,18 @@ int main(int argc, char const* argv[])
 ```
 
 ### [5. decltype](#)
-如果模板函数是以下情况，将很难知道具体返回类型， 这该怎么办呢？
+decltype 检查实体的声明类型，或表达式的类型和值类别。
+
+```cpp
+decltype ( 实体 )	//(C++11 起)
+decltype ( 表达式 )	//(C++11 起)
+```
+
+如果实参是其他类型为 T 的任何表达式，且
+* 如果 表达式 的值类别是亡值，将会 decltype 产生 T&&；
+* 如果 表达式 的值类别是左值，将会 decltype 产生 T&；
+* 如果 表达式 的值类别是纯右值，将会 decltype 产生 T。
+
 
 ```cpp
 template<typename T1, typename T2>

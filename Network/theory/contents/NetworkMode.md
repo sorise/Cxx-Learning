@@ -2,7 +2,7 @@
  **介绍**： 这是在IO多路复用、阻塞非阻塞、同步、异步、多线程的基础上对网络高性能库、封装所形成的网络模式设计的思想！
 
 -----
-- [x] [1. ](#1-)
+- [x] [1. IO多路复用方式](#1-io多路复用方式)
 - [x] [2. ](#2-)
 - [x] [3. ](#3-)
 - [x] [4. ](#4-)
@@ -15,17 +15,18 @@ IO 多路复用是一种同步 IO 模型，实现一个线程可以监视多个�
 
 * **Linux**:   select、poll、epoll
 * **Mac**:  kqueue
-* **Windows**:  select IOCP(异步IO)!
+* **Windows**:  select IOCP(异步IO)
 
 
 ### [2. Reactor模型](#) 
-Reactor模型，**是基于事件驱动的**，基本设计思想是I/O 复用结合线程池。通过一个或多个输入同时传递给服务端处理,也叫做反应器设计模式，是一种为处理服务请求并发提交到一个或者
-多个服务处理器的事件设计模式。当请求抵达后，通过服务处理器将这些请求采用多路分离的方式分发给相应的请求处理器。
+Reactor模型，[**事件驱动的网络模式，它通过一个事件循环来等待和分发事件。当一个事件发生时，Reactor 会调用相应的处理程序来处理事件**](#)。
 
-Reactor 模式主要由 Reactor 和处理器 Handler 这两个核心部分组成，如下图所示，它俩负责的事情如下：
+基本设计思想是I/O 复用结合线程池。通过一个或多个输入同时传递给服务端处理,也叫做反应器设计模式，是一种为处理服务请求并发提交到一个或者多个服务处理器的事件设计模式。当请求抵达后，通过服务处理器将这些请求采用多路分离的方式分发给相应的请求处理器。
 
-* Reactor：负责监听和分发事件，事件类型包含连接事件、读写事件；
-* Handler ：负责处理事件，如 read -> 业务逻辑 （decode + compute + encode）-> send；
+Reactor 模式主要由 **反应堆Reactor** 和 **处理器 Handler** 这两个核心部分组成，如下图所示，它俩负责的事情如下：
+
+* Reactor/Accepter：**负责监听和分发事件，事件类型包含连接事件、读写事件**；
+* Handler ：负责**处理**事件，如 read -> 业务逻辑 （decode + compute + encode）-> send；
 
 **事件驱动处理示意图**，可以看到大致流程为服务端程序监听处理多路请求传入的事件，并将事件分派给请求对应的处理线程完成处理。
 
@@ -75,15 +76,15 @@ Reactor 模型中的 Reactor 可以是单个也可以是多个，Handler 同样�
 Reactor 主线程单线程运行，承担所有事件的监听和响应，高并发场景下会成为性能瓶颈
 
 
-#### [2.3 主从 Reactor 多线程](#)
+#### [2.3 主从 Reactor 多线程 / one loop per thread + 线程池](#)
 单 Reactor 多线程模型中 Reactor 在单线程中运行，高并发场景下容易成为性能瓶颈，针对这个缺点一个解决方案是让 Reactor 在多线程中运行，于是产生了主从 Reactor 多线程模型。相比第二种模型，它将 Reactor 分成两部分
 * **MainReactor** 只用来处理网络IO连接建立的操作，并将建立的连接指定注册到 SubReactor 上
 * **SubReactor** 负责处理注册其上的连接的事件，完成业务处理，通常 SubReactor 个数可与CPU个数等同
 
 **主从 Reactor 多线程模型** 消息处理流程可以分为以下几个步骤：
 
-* Reactor 主线程 MainReactor 通过 select 监控建立连接的事件，收到事件后通过 Acceptor 接收，处理建立连接事件
-* Acceptor 建立连接后，MainReactor 将连接分配给 Reactor 子线程 SubReactor 进行处理。SubReactor 会将该连接加入连接队列进行监听，并创建一个 Handler 用于处理该连接上的读写事件
+* Reactor 主线程 MainReactor 通过 select 监控建立连接的事件，收到事件后通过 Acceptor(或者C++ 的accept 方法) 接收，处理建立连接事件。
+* Acceptor 建立连接后，MainReactor 将连接(句柄 socket fd)分配给 Reactor 子线程 SubReactor 进行处理。SubReactor 会将该连接加入连接队列进行监听，并创建一个 Handler 用于处理该连接上的读写事件
 * 当有读写事件发生时，SubReactor 调用连接对应的 Handler 进行响应，Handler 读取数据后将其分发给 Worker 线程池进行 handle 业务处理
 * Worker 线程池调度线程完成实际的业务处理，并将响应结果返回给 SubReactor 的 Handler，Handler 通过 send 将结果返回给请求端，完成请求响应的流程
 
@@ -96,6 +97,8 @@ Reactor 主线程单线程运行，承担所有事件的监听和响应，高并
 
 
 ### [3. Proactor](#) 
+在Reactor模式中，Reactor等待某个事件或者可应用或个操作的状态发生（比如文件描述符可读写，或者是socket可读写），然后把这个事件传给事先注册的Handler（事件处理函数或者回调函数），由后者来做实际的读写操作，其中的读写操作都需要应用程序同步操作，所以Reactor是非阻塞同步网络模型。如果把I/O操作改为异步，即交给操作系统来完成就能进一步提升性能，这就是异步网络模型Proactor。
+
 在 Reactor 模式中，Reactor 在用户进程通过 select 轮询等待某个事件的发生，然后将这个事件分发给 Handler，由 Handler 来做实际的读写操作。
 [**这个过程中读写操作依然是同步的，如果把 I/O 操作改为异步，即交给操作系统来完成，就能进一步提升性能，这就是异步网络模型 Proactor**](#) 。
 

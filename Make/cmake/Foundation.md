@@ -15,6 +15,7 @@
 - **06.** CMake 自动查找所有源代码和头文件 [->](./contents/BasicStage/CMakeBasicFindSourceAndHead.md)
 - **07.** CMake 命令实现程序的分布生成与调试信息 [->](./contents/BasicStage/CMakeCommandGenerator.md)
 - **08.** CMake 子项目 add_subdirectory [->](./contents/BasicStage/CMakeBasicSubdirectory.md)
+- **09.** CMake 查找库 find_library [->](./contents/BasicStage/CMakeFindLibrary.md)
 
  <span style="color:#2c73ff;font-weight:600;font-family:宋体" >二. 主要语法 - 流程语句、字符串、列表、函数、数学运算：**流程判断**</span>
 
