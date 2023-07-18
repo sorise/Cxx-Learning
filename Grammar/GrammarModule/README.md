@@ -6,6 +6,6 @@
 
 **目录**：
 
-- [C++ STL泛型编程与模板(元编程)](../modern/meta)
-- [C++ 智能指针与内存管理深入](../modern/memory)
+- [C++ STL泛型编程与模板(元编程)](../../modern/meta)
+- [C++ 智能指针与内存管理深入](../../modern/memory)
 
