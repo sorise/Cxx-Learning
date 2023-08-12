@@ -13,8 +13,6 @@
 
 ### 一. 常用命令
 
-
-
 | 命令                                                         | 解释                             |
 | :----------------------------------------------------------- | :------------------------------- |
 | [target_link_libraries](http://cmake.org.cn/command/target_link_libraries.html) | 给目标添加链接库                 |
@@ -58,8 +56,6 @@ target_link_libraries(network prints)
 
 
 
-
-
 #### [2. target_include_directories](#)
 
 该命令可以指定目标（exe或者so文件）需要包含的头文件路径，目标必须是由 **add_executive()** 或 **add_library()** 之类的命令创建的，并且不能是 ALIAS 目标。
@@ -90,7 +86,24 @@ target_include_directories(levelDB
 )
 ```
 
+#### [3. target_compile_options](#)
 
+`target_compile_options`是CMake中的一个命令，用于为指定的目标（例如可执行文件、动态库或静态库）添加编译选项。通过调用该命令，可以向目标的编译过程中传递特定的编译选项。
+
+例如，在CMakeLists.txt文件中使用`target_compile_options`命令为目标添加编译选项：
+
+```cmake
+Copy Codeadd_executable(my_target main.cpp)
+
+# 为my_target添加编译选项
+target_compile_options(my_target PRIVATE -Wall -O2)
+```
+
+在上述示例中，`target_compile_options`命令向`my_target`目标添加了两个编译选项：`-Wall`表示启用所有警告信息，`-O2`表示启用优化级别2。通过设置`PRIVATE`关键字，这些编译选项仅适用于`my_target`目标自身，而不会传递给依赖于它的其他目标。
+
+除了使用具体的编译选项字符串外，也可以使用CMake内置的变量来传递选项。例如，`${CMAKE_CXX_FLAGS}`表示C++编译器的标志，可以通过`target_compile_options(my_target PRIVATE ${CMAKE_CXX_FLAGS})`将其传递给编译器。
+
+注意，使用`target_compile_options`命令添加编译选项时应谨慎，确保选项的正确性和适用性，并遵循编译器的文档和建议。此外，编译选项的传递应根据目标的需求进行合理的设置，以确保代码的正确性和性能优化。
 
 #### [4. target_compile_definitions](#)
 
@@ -138,7 +151,7 @@ foreach (var IN LISTS CMAKE_CXX_COMPILE_FEATURES)
 endforeach ()
 ```
 
-**通过CMAKE_CXX_COMPILE_FEATURES判断编译器是否支持C++11**，这个列表变量存储了当前支持的所有特性。
+**通过CMAKE_CXX_COMPILE_FEATURES 判断编译器是否支持C++11**，这个列表变量存储了当前支持的所有特性。
 
 ```cmake
 cxx_return_type_deduction
@@ -161,3 +174,45 @@ set_target_properties(myTarget PROPERTIES
 )
 ```
 
+
+
+### 二、source_group
+
+`source_group`是CMake中的一个命令，用于组织源代码文件到逻辑组中进行管理。通过调用该命令，可以将相关的源文件分组，并在IDE中以相应的目录结构显示，使项目的组织更加清晰和可读。
+
+```cmake
+source_group(<name> [FILES <src>...] [REGULAR_EXPRESSION <regex>])
+source_group(TREE <root> [PREFIX <prefix>] [FILES <src>...])
+```
+
+例如，在CMakeLists.txt文件中使用`source_group`命令来组织源代码文件：
+
+```cmake
+# 添加可执行文件
+add_executable(my_target main.cpp)
+
+# 添加其他源代码文件
+set(SOURCE_FILES 
+    source1.cpp
+    source2.cpp
+    source3.cpp
+)
+
+# 将源文件分组
+source_group("Source Files" FILES ${SOURCE_FILES})
+
+# 将分组后的源文件与可执行文件关联
+target_sources(my_target PRIVATE ${SOURCE_FILES})
+```
+
+在上述示例中，`source_group`命令将`SOURCE_FILES`中的源文件分组为"Source Files"组。这样，在IDE中查看项目文件结构时，源文件将按照分组形式显示。
+
+`source_group`命令接受两个参数：第一个参数是组名称，用于标识源文件所属的组；第二个参数是要分组的源文件列表。可以根据需要将源文件分组到不同的组中，以实现更好的组织和可视化效果。
+
+最后，使用`target_sources`命令将分组后的源文件与目标（如可执行文件、库）关联起来，确保这些源文件被编译和链接到对应的目标中。
+
+通过使用`source_group`，可以更好地组织和管理较大项目中的源代码文件，并在IDE中以合理的目录结构展示，提高项目的可读性和可维护性。
+
+```cmake
+source_group(TREE . PREFIX include/rpc FILES protocal.hpp reactor.hpp)
+```

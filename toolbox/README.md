@@ -6,3 +6,4 @@
 
 - [C++ Spdlog 日志库](./spdlog)
 - [C++ 压缩库](./zlib)
+- [C++ OpenSSL](./openssl)

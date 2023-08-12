@@ -239,8 +239,7 @@ transform(v.begin(), v.end(), v2.begin(), logical_not<bool>());
 
 
 ### [3. Lambda 引入](#) 
-**lambda函数**，可以使用三种方法给STL算法传递信息：函数指针、函数符和Lambda函数。这三种形式通称为函数对象。为了进行比较，可以看以下示例。现在我们想生成一个随机整数列表，并判断其
-中多少个整数可被3整除，多少个整数可被13整除，可以像下面一样使用STL算法 generate() 在其中填充随机数：
+**lambda函数**，可以使用三种方法给STL算法传递信息：函数指针、函数符和Lambda函数。这三种形式通称为函数对象。为了进行比较，可以看以下示例。现在我们想生成一个随机整数列表，并判断其中多少个整数可被3整除，多少个整数可被13整除，可以像下面一样使用STL算法 generate() 在其中填充随机数：
 
 ```cpp
 #include <vector>
@@ -292,12 +291,12 @@ count3 = std::count_if(numbers.begin(), numbers.end(), [](int x){ return x % 3 =
 ```
 
 ### [4. Lambda](#) 
-lambda 匿名函数，使用[]替代了函数名（这就是匿名的由来）；没有声明返回类型。返回类型相当于使用decltype根据返回值推断得到的，这里为bool。
+lambda 匿名函数，也是一个类类型，重载了 operator( ) 默认情况下是const函数。使用[]替代了名称（这就是匿名的由来）；没有声明返回类型。返回类型相当于使用decltype根据返回值推断得到的，这里为bool。 [https://zh.cppreference.com/w/cpp/language/lambda](https://zh.cppreference.com/w/cpp/language/lambda)
 
-* **仅当lambda表达式完全由一条返回语句组成时，自动类型推断才管用；**
-* **否则，需要使用新增的返回类型后置语法：**
+**仅当lambda表达式完全由一条返回语句组成时，自动类型推断才管用；**
 
-定义语法
+**需要使用新增的返回类型后置语法：**
+
 ```
 [捕获参数列表](函数参数列表) mutable throw(类型)->返回值类型 {函数语句};
 ```
@@ -316,10 +315,11 @@ std::for_each(scores.begin(), scores.end(), [](float val){
 });
 ```
 
-#### [4.1 lambda的额外功能：[&]和[=]](#)
-具体地说，lambda可访问作用域内的任何动态变量；要捕获要使用的变量，可 **将其名称放在中括号[]内**。
+#### [4.1 lambda的捕获功能：[&]和[=]](#)
+具体地说，lambda可访问作用域内的任何动态变量；要捕获要使用的变量，可 **将其名称放在中括号[]内**，，有些时候 lambda 表达式在使用它前不需要先捕获：**该变量是非局部变量，或具有静态或线程局部存储期（此时无法捕获该变量），或者该变量是以常量表达式初始化的引用**。
 
 **指定单个变量**
+
 * 如果指定了变量名，如 [z]， 将 **按值访问变量**；
 * 如果在名称前加上&，如[&count]，将 **按引用访问变量**。
 
@@ -349,6 +349,21 @@ std::for_each(scores.begin(), scores.end(), [&](float val){
 * [ted, &ed] 让我们能够按值访问ted以及按引用访问ed；
 * [&, ted]让我们能够按值访问 ted以及按引用访问其他所有动态变量；
 * [=, &ed]让我们能够按引用访问ed以及按值访问其他所有动态变量。
+
+**不捕获也能访问的情况**，a不用捕获也能访问，其实 `[=]` 里面的等号可以不要。
+
+```cpp
+static int a = 42;
+
+auto p = [=] {++a; };
+std::cout << sizeof p << "\n";
+p();
+return a;
+```
+
+
+
+
 
 
 #### [4.2 有名称的lambda](#)
@@ -385,8 +400,78 @@ std::cout<< f(34) << std::endl; //78
 std::cout<< f(34) << std::endl; //112
 ```
 
+#### [4.4  泛型lambda](#)
+
+使用auto自动推断类型，C++14 开始支持。
+
+```cpp
+auto func = [](auto value) { std::cout << value << std::endl; };
+auto Tfunc = []<typename T>(T value) { std::cout << value << std::endl; };
+
+func(20);
+Tfunc(20);
+
+func(15.21);
+Tfunc(15.21);
+
+func("hello world");
+Tfunc("hello world");
+```
+
+#### [4.5  constexpr 泛型 lambda](#)
+
+constexpr也可以修改lambda，比较lambda本质也是类，然后重载operator 函数。
+
+```cpp
+auto p2 = []() constexpr { return 5; };
+constexpr int v =  p2();
+```
+
+#### [4.6 lambda 转函数指针](#)
+
+这是支持的，最后是生成一个静态函数然后返回静态函数指针，然后静态函数里面创建lambda对象调用operator函数。
+
+```cpp
+void (*p)(const std::string&) = [](const std::string& name) {
+    std::cout << "call me by " << name << std::endl;
+};
+
+p("remix");
+```
+
+C++ 翻译以后:
+
+```cpp
+class __lambda_5_35
+{
+public: 
+    inline /*constexpr */ void operator()(const std::basic_string<char> & name) const
+    {
+      std::operator<<(std::operator<<(std::cout, "call me by "), name).operator<<(std::endl);
+    }
+
+    using retType_5_35 = void (*)(const std::string &);
+    inline constexpr operator retType_5_35 () const noexcept
+    {
+      return __invoke;
+    }
+
+private: 
+    static inline /*constexpr */ void __invoke(const std::basic_string<char> & name)
+    {
+      __lambda_5_35{}.operator()(name);
+    }
+
+
+};
+
+using FuncPtr_5 = void (*)(const std::string &);
+FuncPtr_5 p = static_cast<void (*)(const std::basic_string<char> &)>(__lambda_5_35{}.operator __lambda_5_35::retType_5_35());
+p(std::basic_string<char>("remix", std::allocator<char>()));
+```
 
 ### [5. 包装器](#)
+
 包装器(wrapper)又名适配器(adapter),这些对象用于给其他编程接口提供更一致或更合适的接口。目前，我们的知识深度已知的可调用对象类型有：
 
 * 函数指针

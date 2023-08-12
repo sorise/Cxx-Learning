@@ -318,34 +318,61 @@ void* operator new(size_t) throw();//不抛异常
 如果没有异常接口声明，则可以抛任意类型的异常。
 
 #### [3.1 noexcept修饰符和noexcept操作符](#)
-C++确实支持一种特殊的异常规范： noexcept 表示函数不会引发异常，在CPP11中，如果noexcept修饰的函数抛出了异常，那么编译器会调用std::terminate()直接终止运行了，
+C++ 确实支持一种特殊的异常规范： **noexcept 修饰符** 表示函数不会引发异常，在CPP11中，**如果noexcept修饰的函数抛出了异常，那么编译器会调用std::terminate()直接终止运行了**。
 
 ```cpp
 void may_throw(); // 可能抛出异常
 void no_throw() noexcept; //不可能抛出异常
 ```
-为true表明函数不会抛出异常，false则会抛出异常
+**noexcept操作符里面表达式的值** 为true表明函数不会抛出异常，false则会抛出异常。但是noexcept是一个不求值表达式。
+
 ```cpp
 void fun() noexcept(/* 常量表达式 */) {... }
+
+noexcept(std::cout << "run" << std::endl);
+//没有输出哦
 ```
-虽然noexcept关键字修饰的函数，只是调用了std::terminate()函数，简单暴力的结束了程序的运行，带来了很多问题，比如析构函数没有被调用，栈没有被释放啊等等，但是他被广泛的用在C++11的标准库中，用来提高标准库的性能，以及满足一些阻止异常扩散的需求
+虽然noexcept关键字修饰的函数，只是调用了std::terminate()函数，简单暴力的结束了程序的运行，带来了很多问题，比
+
+如析构函数没有被调用，栈没有被释放啊等等，**但是它被广泛的用在C++11的标准库中，用来提高标准库的性能，以及满足一些阻止异常扩散的需求**。
 
 nexcept做操作符时，通常用于模板：
 
 ```cpp
 template<class T>
 void func() noexcept(noexcept(T())){}
+
+//或者函数调用
+void f() noexcept {
+	std::cout << "hello" << std::endl;
+}
+void f2() noexcept(noexcept(f())) {
+	f();
+	std::cout << ",world!" << std::endl;
+}
 ```
 这里，func函数是否时一个noexcept函数，将由T()表达式是否会抛出异常所决定。如果参数是一个可能抛出异常的就返回false，否则返回true。
 
-noexcept更大的作用是保护应用程序的安全，比如一个类的析构函数，就不应该抛出异常，那么对于常被析构调用的 delete函数来说，它也不应该抛出异常，所以C++11默认将delete函数设置为noexcept，提高应用程序的安全。
+**noexcept更大的作用是保护应用程序的安全，比如一个类的析构函数，就不应该抛出异常，那么对于常被析构调用的 delete函数来说，它也不应该抛出异常，所以C++11默认将delete函数设置为noexcept，提高应用程序的安全**。
 
 ```cpp
 void operator delete(void*) noexcept;
 void operator delete[](void*) noexcept;
 ```
 
+**C++ 17 noexcept 修饰符已经成为函数类型的一部分了**
+
+```cpp
+void f() noexcept {
+	std::cout << "hello" << std::endl;
+}
+
+auto func = f;
+//func的类型为：void (*func)() noexcept
+```
+
 #### [3.2 析构于构造异常说明](#)
+
 **1、保证不在构造函数中抛出异常，因为构造函数的作用是构造对象并初始化，一旦抛出异常，有可能导致对象不完整或没有完全初始化。**
 
 **2、保证不在析构函数中抛出异常，因为析构函数的作用是完成资源的清理，一旦抛出异常，有可能导致资源泄漏（内存泄漏等等）**

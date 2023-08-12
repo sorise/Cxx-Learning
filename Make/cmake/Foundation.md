@@ -26,8 +26,15 @@
 
  <span style="color:#2c73ff;font-weight:600;font-family:宋体" >三. CMake C++ 跨平台编译特性设置</span>
 
-* **01.** CMake 全局构建与编译参数 [->](./contents/CompileSetting/CMakeGenerate.md)
-* **02.** CMake 目标构建与编译参数 [->](./contents/CompileSetting/CMakeCompileSetting01.md)
+* **01.** CMake 全局构建与编译参数、系统信息 [->](./contents/CompileSetting/CMakeGenerate.md)
+* **02.** CMake 目标构建与编译参数、source_group [->](./contents/CompileSetting/CMakeCompileSetting01.md)
+
+ <span style="color:#2c73ff;font-weight:600;font-family:宋体" >四. CMake C++ install 安装部署测试</span>
+
+* **01.** CMake 安装部署 [->](./contents/CompileSetting/CMakeInstall.md) 
+* **02.** CMake 测试 [->](./contents/CompileSetting/CMakeTest.md) 
+
+
 
 
 

@@ -6,26 +6,86 @@
 
 - [x] [1. 全局构建与编译参数](#1-全局构建与编译参数)
 - [x] [2. CPP的标准](#2-cpp的标准)
-- [x] [3. ](#3-)
-- [x] [4. ](#4-)
-- [x] [5. ](#5-)
+- [x] [3. 编译配置](#3-编译配置)
+- [x] [4. 输出路径](#4-输出路径)
+- [x] [5. 系统信息](#5-系统信息)
 
 
 
 ---
 
-### 1. 全局构建与编译参数
+### [1. 全局构建与编译参数](#)
 
-- [add_compile_definitions](http://cmake.org.cn/command/add_compile_definitions.html)
-- [add_compile_options](http://cmake.org.cn/command/add_compile_options.html)
-- [add_custom_command](http://cmake.org.cn/command/add_custom_command.html)
-- [add_custom_target](http://cmake.org.cn/command/add_custom_target.html)
-- [add_definitions](http://cmake.org.cn/command/add_definitions.html)
-- [add_dependencies](http://cmake.org.cn/command/add_dependencies.html)
-- [add_executable](http://cmake.org.cn/command/add_executable.html)
-- [add_library](http://cmake.org.cn/command/add_library.html)
-- [add_link_options](http://cmake.org.cn/command/add_link_options.html)
-- [add_test](http://cmake.org.cn/command/add_test.html)
+| 命名                                                         | 解释                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [add_compile_definitions](http://cmake.org.cn/command/add_compile_definitions.html) | 用于向编译器添加预定义宏定义                                 |
+| [add_compile_options](http://cmake.org.cn/command/add_compile_options.html) | 通过调用该命令，可以将特定的编译选项传递给编译器，以影响代码的编译过程和生成的可执行文件。 |
+| [add_custom_command](http://cmake.org.cn/command/add_custom_command.html) |                                                              |
+| [add_custom_target](http://cmake.org.cn/command/add_custom_target.html) |                                                              |
+| [add_definitions](http://cmake.org.cn/command/add_definitions.html) |                                                              |
+| [add_dependencies](http://cmake.org.cn/command/add_dependencies.html) |                                                              |
+| [add_executable](http://cmake.org.cn/command/add_executable.html) |                                                              |
+| [add_library](http://cmake.org.cn/command/add_library.html)  |                                                              |
+| [add_link_options](http://cmake.org.cn/command/add_link_options.html) |                                                              |
+| [add_test](http://cmake.org.cn/command/add_test.html)        |                                                              |
+
+
+
+#### [1.1 add_compile_definitions](#)
+
+例如，在CMakeLists.txt文件中使用`add_compile_definitions`命令添加预定义宏定义：
+
+```
+Copy Codeadd_compile_definitions(DEBUG_MODE)
+```
+
+这将在编译时定义一个名为`DEBUG_MODE`的宏。在源代码中，可以使用条件编译指令来根据该宏的定义与否选择性地编译不同的代码块：
+
+```cmake
+c++Copy Code#ifdef DEBUG_MODE
+    // 调试模式下的代码
+#else
+    // 非调试模式下的代码
+#endif
+```
+
+注意，`add_compile_definitions`命令在CMake 3.12及以上版本中可用。
+
+#### [1.2 add_compile_options](#)
+
+`add_compile_options`是CMake中的一个命令，用于向编译器添加编译选项。通过调用该命令，可以将特定的编译选项传递给编译器，以影响代码的编译过程和生成的可执行文件。
+
+例如，在CMakeLists.txt文件中使用`add_compile_options`命令添加编译选项：
+
+```cmake
+Copy Codeadd_compile_options(-Wall -O2)
+```
+
+这将向编译器传递两个选项：`-Wall`表示启用所有警告信息，`-O2`表示启用优化级别2。根据编译器的不同，具体的编译选项可能会有所不同。
+
+除了使用具体的编译选项字符串外，也可以使用CMake内置的变量来传递选项。例如，`${CMAKE_CXX_FLAGS}`表示C++编译器的标志，可以通过`add_compile_options(${CMAKE_CXX_FLAGS})`将其传递给编译器。
+
+注意，使用`add_compile_options`命令添加编译选项时应谨慎，确保选项的正确性和适用性，并遵循编译器的文档和建议。
+
+#### [1.6 add_dependencies](#)
+
+`add_dependencies`是CMake中的一个命令，用于定义目标之间的依赖关系。通过调用该命令，可以指定一个或多个目标依赖于其他目标，以确保在构建过程中正确地解析和构建这些依赖关系。
+
+例如，在CMakeLists.txt文件中使用`add_dependencies`命令定义依赖关系：
+
+```cmake
+Copy Codeadd_executable(my_target main.cpp)
+add_library(my_library STATIC my_library.cpp)
+
+# 指定my_target依赖于my_library
+add_dependencies(my_target my_library)
+```
+
+在上述示例中，`my_target`是通过`add_executable`命令定义的目标可执行文件，`my_library`是通过`add_library`命令定义的静态库。`add_dependencies`命令指定了`my_target`依赖于`my_library`，以确保在构建`my_target`时先构建并解析`my_library`。
+
+这种依赖关系的定义对于确保目标之间正确的构建顺序很重要，特别是当目标之间存在源代码文件的相互依赖关系时。
+
+注意，目标之间的依赖关系应当谨慎定义，确保依赖关系的正确性，并避免循环依赖造成的构建问题。
 
 
 
@@ -122,13 +182,32 @@ SET_TARGET_PROPERTIES(math PROPERTIES
 
 
 
+#### [1.9 add_link_options](#)
+
+`add_link_options`是CMake中的一个命令，用于向链接器添加链接选项。通过调用该命令，可以将特定的链接选项传递给链接器，以影响可执行文件或库的链接过程。
+
+例如，在CMakeLists.txt文件中使用`add_link_options`命令添加链接选项：
+
+```cmake
+Copy Codeadd_executable(my_target main.cpp)
+
+# 向链接器添加链接选项
+add_link_options(-L/path/to/libraries -lmylibrary)
+```
+
+上述示例中，`add_link_options`命令向链接器传递了两个选项：`-L/path/to/libraries`表示指定链接器在指定路径下搜索库文件，`-lmylibrary`表示指定链接器链接名为"mylibrary"的库。具体的链接选项和其含义可能因链接器的不同而有所差异。
+
+注意，在使用`add_link_options`命令时，需确保传递的链接选项是有效且符合编译环境和目标平台的要求。对于跨平台项目，可能需要针对不同的操作系统或编译器使用不同的链接选项。
+
+此外，还可以使用CMake内置的变量来传递链接选项。例如，`${CMAKE_EXE_LINKER_FLAGS}`表示可执行文件链接器的标志，可以通过`add_link_options(${CMAKE_EXE_LINKER_FLAGS})`将其传递给链接器。
+
+使用`add_link_options`命令可以实现对链接过程的更加精细的控制和定制化。
+
 ### 二、CPP的标准
 
 #### 设置C++标准
 
 `CMAKE_CXX_STANDARD` 变量用于设置创建目标时使用的 `CXX_STANDARD` 目标属性默认值。
-
-
 
 ### 强制指定标准
 
@@ -136,19 +215,13 @@ SET_TARGET_PROPERTIES(math PROPERTIES
 
 换言之，CMake 将自动“衰减”至最接近的标准。如果确实需要强制指定标准，禁用这种自动衰减调整，那么可以通过设置 **CXX_STANDARD_REQUIRED** 实现。
 
-
-
 ```cmake
 set(CMAKE_CXX_STANDARD 11)  # 将 C++ 标准设置为 C++ 11
 set(CMAKE_CXX_STANDARD_REQUIRED ON)  # C++ 11 是强制要求，不会衰退至低版本
 set(CMAKE_CXX_EXTENSIONS OFF)  # 禁止使用编译器特有扩展
 ```
 
-
-
 ### 三、编译配置
-
-
 
 #### 3.1  编译优化
 DEBUG/Release 模式对于的优化选项：
@@ -239,3 +312,25 @@ source_group(src FILES Epoll.cpp Task.cpp)
 source_group(TREE. include/timer FILES whellTimer.hpp mapTimer.hpp)
 ```
 
+
+
+### [5. 系统信息](#)
+
+| 系统信息变量                  | 名称                                           |
+| :---------------------------- | :--------------------------------------------- |
+| **1. CMAKE_MAJOR_VERSION**    | CMAKE主版本号，比如2.4.6中的2                  |
+| **2. CMAKE_MINOR_VERSION**    | CMAKE次版本号，比如2.4.6中的4                  |
+| **3. CMAKE_PATCH_VERSION**    | CMAKE补丁等级，比如2.4.6中的6                  |
+| **4. CMAKE_SYSTEM**           | 系统名称，比如Linux-2.6.22                     |
+| **5. CMAKE_SYSTEM_NAME**      | 不包含版本的系统名，比如Linux                  |
+| **6. CMAKE_SYSTEM_VERSION**   | 系统版本，比如2.6.22                           |
+| **7. CMAKE_SYSTEM_PROCESSOR** | 处理器名称，比如i686                           |
+| **8. UNIX**                   | 在所有的类Unix平台为**TRUE** ，包括OSX和cygwin |
+| **9. WIN32**                  | 在所有的Win32平台为**TRUE** ，包括cygwin       |
+
+#### [5.1 CMake版本信息](#)
+
+```cmake
+message(STATUS "cmake version ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION}")
+# -- cmake version 3.22.1
+```
