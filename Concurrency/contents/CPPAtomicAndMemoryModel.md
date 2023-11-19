@@ -52,7 +52,7 @@ C++ 内存模型牵涉到两个方面：基本结构和并发，基本机构关�
 
 #### [1.2 为什么需要引入原子操作](#)
 
-计算机的内存由一系列的字节组成，每个字节都有一个唯一的地址。程序可以通过变量来引用内存中的某个地址，从而读取或写入该地址的内容。内存模型定义了程序中变量在内存中的存储方式以及读写变量时的规则。
+计算机的内存由一系列的字节组成，每个字节都有一个唯一的地址。程序可以通过变量来引用内存中的某个地址，从而读取或写入该地址的内容。**内存模型定义了程序中变量在内存中的存储方式以及读写变量时的规则**。
 
 **并发与内存模型的关系**，首先要理解对于一条C++程序代码，可能会被翻译成好几条汇编代码，然后到CPU层面，又会对应好多条指令，即使在同一线程中，彼此没有依赖关系的指令会被乱序执行，再考虑到编译器优化、 处理器优化、Cache。
 
@@ -67,7 +67,7 @@ y = 2;
 
 总之，实际编程中程序不会完全按照你原始代码的顺序来执行，因此内存模型就是程序员、编译器、CPU之间的契约。编程、编译、执行都会在遵守这个契约的情况下进行，在这样的规则之上各自做自己的优化，从而提升程序的性能。
 
-[**你可能回想，我们利用互斥量加锁的方式来解决这个问题**, 通过互斥量确实可以解决，使得写操作原子化，但是C++还提供了**原子操作**，不用加锁来解决这个问题！](#)
+[**你可能会想，我们利用互斥量加锁的方式来解决这个问题**, 通过互斥量确实可以解决，使得写操作原子化，但是C++还提供了**原子操作**，不用加锁来解决这个问题！](#)
 
 
 
@@ -202,6 +202,20 @@ C++11 提供了**五种内存模型** memory_order_relaxed、memory_order_acquir
 
 * CPU是多核的，导致缓存是多份的。
 * 基于写回策略将会出现缓存不一致的问题。
+
+
+
+就需要一种机制，来同步两个不同核心里面的缓存数据。要实现的这个机制的话，要保证做到下面这 2 点：
+
+- 第一点，某个 CPU 核心里的 Cache 数据更新时，必须要传播到其他核心的 Cache，这个称为 **写传播(Write Propagation)**；
+  - 靠总线嗅探
+  - 写操作会通知其他CPU核心
+- 第二点，某个 CPU 核心里对数据的操作顺序，必须在其他核心看起来顺序是一样的，这个称为 **事务的串行化(Transaction Serialization)**。
+
+要**实现事务串行化**，要做到 2 点：
+
+- CPU 核心对于 Cache 中数据的操作，需要同步给其他 CPU 核心；
+- 要引入「锁」的概念，如果两个 CPU 核心里有相同数据的 Cache，那么对于这个 Cache 数据的更新，只有拿到了「锁」，才能进行对应的数据更新。
 
 解决方案：**缓存一致性协议 MESI**！ 
 
@@ -514,7 +528,7 @@ void clear (memory_order sync = memory_order_seq_cst) noexcept;
 #include <thread>                // std::thread, std::this_thread::yield
 #include <vector>                // std::vector
 
-std::atomic\<bool> ready(false);    // can be checked without being set
+std::atomic<bool> ready(false);    // can be checked without being set
 std::atomic_flag winner = ATOMIC_FLAG_INIT;    // always set when checked
 
 void count1m(int id)
@@ -652,7 +666,7 @@ void threaRelease(){
 #### [5.6 memory_order_consume](#)
 数据依赖 - （前序依赖 和 携带依赖） 消费者的意思，它的执行一定在  memory_order_acq_rel、memory_order_release、memory_order_seq_cst 标记的原子操作之后执行～
 
->  根据 cppreference 的**[文档](https://link.zhihu.com/?target=https%3A//en.cppreference.com/w/cpp/atomic/memory_order)**说明：不鼓励使用 memory_order_consume 这个内存顺序。
+>  根据 cppreference 的[文档](https://link.zhihu.com/?target=https%3A//en.cppreference.com/w/cpp/atomic/memory_order)说明：不鼓励使用 memory_order_consume 这个内存顺序。
 >
 > 释放消费顺序的规范正在修订中，而且暂时不鼓励使用 memory_order_consume 。(C++17 起)
 >

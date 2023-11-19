@@ -779,7 +779,33 @@ StringBuilder::~StringBuilder() {
 cout<< StringBuilder::GetBuilderCount() << endl;
 ```
 
+
+
+#### [4.3 inline修饰静态成员](#)
+
+一般情况下对静态成员的初始化是放在类外部进行的，但是在`C++17` 以后，对静态成员加上 **inline** 修饰符以后就可以实现在类内部初始化了！
+
+```cpp
+class X{
+public:
+    inline static std::string Name {"Class.X"}; //直接内部初始化
+
+    const static int Count  = 10; //可以直接在内部初始化
+
+    const static std::string UI; //需要在类外部
+};
+
+const std::string X::UI = "jxkicker";
+```
+
+非整型的const static成员变量不能在类内部进行初始化是因为C++编译器的限制, 根据C++标准的规定，非整型的const static成员变量必须在类外部进行定义和初始化。
+
+**这个限制是为了确保编译器可以在编译阶段确定非整型const static成员变量的初始值。对于整型，编译器可以直接将其值直接嵌入到可执行代码中，而对于非整型，其初始值可能涉及到更复杂的计算，因此需要在类外进行初始化**。
+
+
+
 ### [5. 动态内存分配](#)
+
 动态内存就是使用 `new` 和 `delete`来创建类，或者在类里面使用 `new` `delete` 创建内部成员。 没啥可说的，你懂的！
 
 当类有指针成员或有动态分配空间，都应实现自定义的拷贝构造函数。提供了拷贝构造函数，最后也实现赋值运算符。 这也是  `<<C++ Primer Plues>>` 12章的主题所在

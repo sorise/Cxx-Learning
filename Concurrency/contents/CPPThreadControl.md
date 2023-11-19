@@ -773,13 +773,44 @@ int main(int args, char* argv[]) {
 
 
 
+<img src="./assets/image-20230821202132671.png" alt="image-20230821202132671" width="800px" />
 
 
 
+### [7. thread_local](#)
 
+首先**thread_local**是一个关键词，**thread_local**是C++ 11新引入的一种存储期指定符。它会影响变量的存储周期(Storage duration)，随线程创建而创建，消亡而消亡， thread_local 能与 static 或 extern 结合一同出现，以调整链接（分别指定内部或外部链接）。
 
+[存储类说明符](https://zh.cppreference.com/w/cpp/language/storage_duration)
 
+| 关键字       | 说明                                                 | 备注                                  |
+| ------------ | ---------------------------------------------------- | ------------------------------------- |
+| auto         | 自动存储期                                           | c++11前, “auto int x; ” 在c++11起错误 |
+| register     | 自动存储期。指示编译器将此对象置于处理器的寄存器中。 | c++17弃用                             |
+| static       | 静态或者线程存储期的内部链接                         |                                       |
+| extern       | 静态或者线程存储期的外部链接                         |                                       |
+| thread_local | 线程存储期                                           | c++11起                               |
+| mutable      | 不影响存储期或链接                                   |                                       |
 
+使用：
+
+```cpp
+struct X{
+    thread_local static int Count;
+};
+
+thread_local X a;
+
+int main()
+{
+    thread_local  X b;
+	return 0;
+}
+```
+
+解决问题：
+
+**errno**的多线程安全问题，早期是静态变量，到了多线程环境就有并发冲突问题了，C++ 11 以后errno被改成了一个线程局部存储从变量。
 
 
 

@@ -58,7 +58,7 @@ c++Copy Code#ifdef DEBUG_MODE
 例如，在CMakeLists.txt文件中使用`add_compile_options`命令添加编译选项：
 
 ```cmake
-Copy Codeadd_compile_options(-Wall -O2)
+add_compile_options(-Wall -O2)
 ```
 
 这将向编译器传递两个选项：`-Wall`表示启用所有警告信息，`-O2`表示启用优化级别2。根据编译器的不同，具体的编译选项可能会有所不同。
@@ -74,7 +74,7 @@ Copy Codeadd_compile_options(-Wall -O2)
 例如，在CMakeLists.txt文件中使用`add_dependencies`命令定义依赖关系：
 
 ```cmake
-Copy Codeadd_executable(my_target main.cpp)
+add_executable(my_target main.cpp)
 add_library(my_library STATIC my_library.cpp)
 
 # 指定my_target依赖于my_library
