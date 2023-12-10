@@ -30,37 +30,67 @@ int WSAAPI WSAStartup(
 
 使用例子：
 ```cpp
-#include<iostream>
-#include <winsock2.h>
-
-// Need to link with Ws2_32.lib
-#pragma comment(lib, "ws2_32.lib") 
-
-int main(int argc, char* argv[]) {
-#ifdef _WIN32 
-	//初始化socket Dll 库
-	WSADATA wsa;
-	auto result = WSAStartup(MAKEWORD(2, 2), &wsa);
-	if (result!=0)
-	{
-		std::cerr << "WSAStartup error code:" << result << std::endl;
-		return 1;
-	}
+#ifdef WIN32
+    #include <winsock2.h>
+    #include <Windows.h>
+    // Need to link with Ws2_32.lib
+    #pragma comment(lib, "ws2_32.lib")
 #endif
 
+#include <iostream>
+#include <functional>
+
+using namespace std;
+
+int main() {
+#ifdef WIN32
+    //初始化socket Dll 库
+    WSADATA wsa;
+    auto result = WSAStartup(MAKEWORD(2, 2), &wsa);
+    if (result!=0)
+    {
+        std::cerr << "WSAStartup error code:" << result << std::endl;
+        return 1;
+    }else{
+        std::cout << "WSAStartup start successfully" << std::endl;
+    }
     //版本检测是否加载正确
     if (LOBYTE(wsa.wVersion) != 2 || HIBYTE(wsa.wVersion) != 2) {
         printf("未发现版本正确的 Winsock.dll\n");
         WSACleanup();
         return 1;
     }
-    else
+    else{
         printf("The Winsock 2.2 dll was found okay\n");
-
-
-#ifdef _WIN32 
-	WSACleanup(); //结束DLL
+		
+    }
+    WSACleanup(); //结束DLL
 #endif
     return 0;
 }
+
 ```
+
+#### 1.2 CMake设置
+
+我们还需引入响应的库文件。
+
+```cmake
+cmake_minimum_required(VERSION 3.25)
+
+project(maker)
+
+#解决 visual studio 编码问题
+if (WIN32)
+    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+endif ()
+
+set(CMAKE_CXX_STANDARD 20)
+
+add_executable(use main.cpp)
+
+#引入socket库
+target_link_libraries(use ws2_32 wsock32)
+```
+
