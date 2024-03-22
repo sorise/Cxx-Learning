@@ -151,24 +151,7 @@ int main()
 	rsa-factor9
 	rsa-factor10
 	rsa-exponent1
-	rsa-exponent2
-	rsa-exponent3
-	rsa-exponent4
-	rsa-exponent5
-	rsa-exponent6
-	rsa-exponent7
-	rsa-exponent8
-	rsa-exponent9
-	rsa-exponent10
-	rsa-coefficient1
-	rsa-coefficient2
-	rsa-coefficient3
-	rsa-coefficient4
-	rsa-coefficient5
-	rsa-coefficient6
-	rsa-coefficient7
-	rsa-coefficient8
-	rsa-coefficient9
+	...
 	*/
 	BIGNUM* d = nullptr;
 	EVP_PKEY_get_bn_param(kp, "d", &d);
