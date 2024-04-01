@@ -114,4 +114,4 @@ std::for_each(number.begin(), number.end(), [](const float& v) {
 
 ### 注
 
-1. 反对C++函数返回用std::tuple, 可读性可变性太差。
+1. 反对C++函数返回用std::tuple, 可读性、可编写性太差。
