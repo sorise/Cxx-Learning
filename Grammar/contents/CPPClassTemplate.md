@@ -743,10 +743,10 @@ public:
     /* ... */
 };
 ```
-声明中<>指出这是模板具体化，注意模板具体化和函数具体化有点不一样。对于report，<>可以为空,因为可以从函数参数推断出模板类型参数。在声明的例子中是：HasfriendT<TT>。然而，也可以使用report<HasFriendT<TT>> 来代替 report<> 。
-由于counts()函数没有参数，所以必须使用模板参数 counts<T,N>() 来制定生成具体的友元函数！
+声明中\<\>指出这是模板具体化，注意模板具体化和函数具体化有点不一样。对于report，\<\>可以为空,因为可以从函数参数推断出模板类型参数。在声明的例子中是：HasfriendT\<TT\>。然而，也可以使用report\<HasFriendT\<TT\>\> 来代替 report\<\> 。
+由于counts()函数没有参数，所以必须使用模板参数 counts\<T,N\>() 来制定生成具体的友元函数！
 
-实例化一个 Array<double, 10> 生成下面的类定义！
+实例化一个 Array\<double, 10\> 生成下面的类定义！
 
 ```cpp
 class Array<double, 10> final
