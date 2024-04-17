@@ -237,11 +237,45 @@ private:
 };
 ```
 
+在Windows平台上，使用 `__declspec(dllexport)` 来标记需要被导出的函数和变量。以下是一些常见的用法：
+
+**函数**：将要被导出的函数声明之前加上 `__declspec(dllexport)`。例如：
+```cpp
+__declspec(dllexport) void MyFunction();
+```
+**类**：如果要导出整个类，可以将类名前面的 `class` 或 `struct` 声明加上 `__declspec(dllexport)`。例如：
+
+```cpp
+class __declspec(dllexport) MyClass {
+    // 类定义
+};
+```
+
+**类的成员函数**：如果只想导出类的部分成员函数，可以将这些成员函数的声明前面加上 `__declspec(dllexport)`。例如：
+
+```cpp
+class MyClass {
+public:
+    __declspec(dllexport) void MyMemberFunction();
+private:
+    // 私有成员函数
+};
+```
+
+**全局变量**：将要导出的全局变量的声明前面加上 `__declspec(dllexport)`。例如：
+
+```cpp
+__declspec(dllexport) int globalVariable;
+```
+这些是一些常见的用法示例，您可以根据需要将 `__declspec(dllexport)` 应用于需要导出的函数、类、变量等。
+
 然后再运行：
 ```
 cmake -S . -B build   #生成
 #使用 vscode 打开 build 里面的项目即可！
 ```
+
+
 
 ### [3. CMake创建库指令](#)
 
@@ -311,3 +345,6 @@ target_link_libraries(network prints)
 ```shell
 link_directories(/usr/lib/mylibfolder ./lib)
 ```
+
+
+
